@@ -1,9 +1,20 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DEMO_ROLES, resolveRoleFromEmail, type DemoRole } from '@/lib/roles';
 import { Icon } from '@/components/icons';
+import { clearLogin, getLockRemaining, LOCK_MS, recordFailedLogin } from '@/lib/security';
+
+/** Contraseña del login manual en la demo. */
+const DEMO_PASSWORD = 'pagofirme';
+
+const mmss = (ms: number) => {
+  const total = Math.ceil(ms / 1000);
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+};
 
 const inputClass =
   'mb-2.5 w-full rounded-[10px] border border-wire bg-surface px-3.5 py-2.5 text-sm text-clean outline-none transition-colors placeholder:text-fog focus:border-cipher';
@@ -17,6 +28,28 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [lockUntil, setLockUntil] = useState(0);
+  const [lockLeft, setLockLeft] = useState(0);
+
+  // Cuenta regresiva en vivo mientras la cuenta está bloqueada.
+  useEffect(() => {
+    if (!lockUntil) return;
+    const tick = () => {
+      const left = lockUntil - Date.now();
+      if (left <= 0) {
+        setLockUntil(0);
+        setLockLeft(0);
+      } else {
+        setLockLeft(left);
+      }
+    };
+    tick();
+    const id = setInterval(tick, 500);
+    return () => clearInterval(id);
+  }, [lockUntil]);
+
+  const locked = lockLeft > 0;
 
   function goTo(role: DemoRole) {
     router.push(role.dashboard);
@@ -24,7 +57,32 @@ export default function LoginPage() {
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    goTo(resolveRoleFromEmail(email));
+    const key = (email.trim() || 'cuenta').toLowerCase();
+
+    const rem = getLockRemaining(key);
+    if (rem > 0) {
+      setLockUntil(Date.now() + rem);
+      return;
+    }
+
+    if (password === DEMO_PASSWORD) {
+      clearLogin(key);
+      setError(null);
+      goTo(resolveRoleFromEmail(email));
+      return;
+    }
+
+    const { remaining, locked: nowLocked } = recordFailedLogin(key);
+    if (nowLocked) {
+      setError(null);
+      setLockUntil(Date.now() + LOCK_MS);
+    } else {
+      setError(
+        `Contraseña incorrecta · te ${remaining === 1 ? 'queda' : 'quedan'} ${remaining} intento${
+          remaining === 1 ? '' : 's'
+        }`,
+      );
+    }
   }
 
   return (
@@ -102,13 +160,33 @@ export default function LoginPage() {
             placeholder="••••••••"
             className={inputClass}
           />
+          <p className="-mt-1 mb-2.5 text-[10px] text-fog">
+            Demo: contraseña <span className="text-cipher">pagofirme</span>
+          </p>
+
+          {locked ? (
+            <div className="mb-2.5 flex items-center gap-2 rounded-[10px] border border-loss/30 bg-loss/[0.08] px-3 py-2">
+              <Icon name="lock" className="h-4 w-4 shrink-0 text-loss" />
+              <span className="text-[11px] text-loss">
+                Cuenta bloqueada por seguridad · reintentá en {mmss(lockLeft)}
+              </span>
+            </div>
+          ) : (
+            error && (
+              <div className="mb-2.5 flex items-center gap-2 rounded-[10px] border border-risk/30 bg-risk/[0.06] px-3 py-2">
+                <Icon name="alert-triangle" className="h-4 w-4 shrink-0 text-risk" />
+                <span className="text-[11px] text-risk">{error}</span>
+              </div>
+            )
+          )}
 
           <button
             type="submit"
-            className="flex w-full items-center justify-center gap-2 rounded-[14px] bg-cipher px-4 py-3 text-sm font-semibold text-[#0A0C15] transition active:scale-[.99] active:opacity-90"
+            disabled={locked}
+            className="flex w-full items-center justify-center gap-2 rounded-[14px] bg-cipher px-4 py-3 text-sm font-semibold text-[#0A0C15] transition active:scale-[.99] active:opacity-90 disabled:bg-lift disabled:text-fog"
           >
             <Icon name="login" className="h-[18px] w-[18px]" />
-            Iniciar sesión
+            {locked ? `Bloqueado · ${mmss(lockLeft)}` : 'Iniciar sesión'}
           </button>
         </form>
 

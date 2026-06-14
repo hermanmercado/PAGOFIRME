@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon, type IconName } from '@/components/icons';
 import { BottomNav, type NavItem } from '@/components/BottomNav';
@@ -9,6 +9,7 @@ import { SessionTimeout } from '@/components/SessionTimeout';
 import { RankingList } from '@/components/RankingList';
 import { Toggle } from '@/components/Toggle';
 import { OWNER_RANKING } from '@/lib/teamData';
+import { FRAUD_EVENT, getFraudAlerts, type FraudAlert } from '@/lib/security';
 
 type Tab = 'inicio' | 'equipo' | 'reportes' | 'config' | 'mas';
 type MasView = 'hub' | 'contador' | 'links';
@@ -97,6 +98,21 @@ export default function DuenoDashboard() {
   const { toast, show } = useToast();
   const [tab, setTab] = useState<Tab>('inicio');
   const [masView, setMasView] = useState<MasView>('hub');
+  const [fraudAlerts, setFraudAlerts] = useState<FraudAlert[]>([]);
+
+  // Alertas de fraude generadas por vendedores (persistidas en localStorage).
+  useEffect(() => {
+    const refresh = () => setFraudAlerts(getFraudAlerts());
+    refresh();
+    window.addEventListener(FRAUD_EVENT, refresh);
+    window.addEventListener('storage', refresh);
+    window.addEventListener('focus', refresh);
+    return () => {
+      window.removeEventListener(FRAUD_EVENT, refresh);
+      window.removeEventListener('storage', refresh);
+      window.removeEventListener('focus', refresh);
+    };
+  }, []);
 
   function goTab(id: Tab) {
     if (id === 'mas') setMasView('hub');
@@ -204,6 +220,18 @@ export default function DuenoDashboard() {
                   Alertas del negocio
                 </div>
                 <div className="overflow-hidden rounded-[14px] border border-wire bg-surface">
+                  {fraudAlerts.map((a) => (
+                    <div key={a.id} className="flex items-start gap-2.5 border-b border-wire px-3.5 py-2.5">
+                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-loss/[0.08] text-loss">
+                        <Icon name="alert-triangle" className="h-3.5 w-3.5" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-xs font-medium text-clean">{a.title}</div>
+                        <div className="text-[10px] leading-snug text-ghost">{a.desc}</div>
+                      </div>
+                      <div className="text-[9px] text-fog">{a.time}</div>
+                    </div>
+                  ))}
                   <div className="flex items-start gap-2.5 border-b border-wire px-3.5 py-2.5">
                     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-risk/[0.08] text-risk">
                       <Icon name="trending-up" className="h-3.5 w-3.5" />

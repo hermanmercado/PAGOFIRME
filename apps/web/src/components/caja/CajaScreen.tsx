@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@/components/icons';
 import { bs, evalExpr, ticketId, type Linea, type Ticket } from '@/lib/caja';
+import { recordQr, reportUnusualSale } from '@/lib/security';
 
 const keyBase =
   'flex min-h-[50px] select-none items-center justify-center bg-surface text-lg text-clean transition-colors active:bg-lift';
@@ -24,6 +25,10 @@ export interface CajaScreenProps {
   show: (msg: string, kind?: 'ok' | 'warn') => void;
   /** Oculta la caja sin desmontarla (preserva el estado entre pestañas). */
   hidden?: boolean;
+  /** Operador de la caja; activa el monitoreo antifraude (tasa de QR y venta inusual). */
+  actor?: string;
+  /** Ticket promedio del operador; un cobro > 3x dispara aviso de venta inusual. */
+  avgTicket?: number;
 }
 
 export function CajaScreen({
@@ -34,6 +39,8 @@ export function CajaScreen({
   onCobrado,
   show,
   hidden = false,
+  actor,
+  avgTicket,
 }: CajaScreenProps) {
   const [expr, setExpr] = useState('');
   const [lineas, setLineas] = useState<Linea[]>([]);
@@ -105,6 +112,19 @@ export function CajaScreen({
   }
   function generarQR(viaWA = false) {
     if (!lineas.length) return;
+
+    // Antifraude: tasa de QR (> 10/min) y cobro inusual (> 3x el promedio).
+    if (actor) {
+      const { count, justFlagged } = recordQr(actor);
+      if (justFlagged) {
+        show(`Actividad inusual: ${count} QR en 1 min · dueño notificado`, 'warn');
+      }
+    }
+    if (avgTicket && total > avgTicket * 3) {
+      show(`Cobro inusual: supera 3x tu promedio (Bs ${avgTicket}) · dueño notificado`, 'warn');
+      if (actor) reportUnusualSale(actor, total, avgTicket);
+    }
+
     setModal({ total, status: 'waiting' });
     if (viaWA) show('QR enviado por WhatsApp al cliente', 'ok');
   }

@@ -34,6 +34,8 @@ export default function VendedorDashboard() {
           montos={[150, 200, 300]}
           limit={2000}
           ticketStart={43}
+          actor="Carlos Arias"
+          avgTicket={280}
           onCobrado={(t) => setTickets((ts) => [t, ...ts])}
           show={show}
           renderHeader={({ ticketId, hora }) => (

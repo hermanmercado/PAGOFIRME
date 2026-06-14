@@ -162,6 +162,7 @@ export function SupervisorDashboard({ sup }: { sup: SupData }) {
           hidden={tab !== 'caja'}
           limit={null}
           ticketStart={sup.ticketStart}
+          actor={sup.name}
           show={show}
           renderHeader={({ ticketId, hora }) => (
             <header className="shrink-0 border-b border-wire px-[18px] pb-[11px] pt-2.5">
