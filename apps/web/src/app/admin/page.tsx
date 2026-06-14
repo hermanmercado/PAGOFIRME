@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Icon, type IconName } from '@/components/icons';
 import type { NavItem } from '@/components/BottomNav';
 import { Toaster, useToast } from '@/components/Toaster';
+import { SessionTimeout } from '@/components/SessionTimeout';
 
 type AdminTab = 'negocios' | 'usuarios' | 'stats';
 
@@ -287,6 +288,7 @@ export default function AdminDashboard() {
         </button>
       </nav>
       <Toaster toast={toast} />
+      <SessionTimeout />
     </div>
   );
 }

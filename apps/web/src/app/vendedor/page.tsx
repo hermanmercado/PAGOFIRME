@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/icons';
 import { BottomNav, type NavItem } from '@/components/BottomNav';
 import { Toaster, useToast } from '@/components/Toaster';
+import { SessionTimeout } from '@/components/SessionTimeout';
 import { CajaScreen } from '@/components/caja/CajaScreen';
 import { bs, type Ticket } from '@/lib/caja';
 
@@ -231,6 +232,7 @@ export default function VendedorDashboard() {
 
       <BottomNav items={NAV} active={tab} onChange={setTab} />
       <Toaster toast={toast} />
+      <SessionTimeout />
     </div>
   );
 }

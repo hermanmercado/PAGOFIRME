@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/icons';
 import { BottomNav, type NavItem } from '@/components/BottomNav';
 import { Toaster, useToast } from '@/components/Toaster';
+import { SessionTimeout } from '@/components/SessionTimeout';
 import { CajaScreen } from '@/components/caja/CajaScreen';
 import { RankingList } from '@/components/RankingList';
 import { Toggle } from '@/components/Toggle';
@@ -328,6 +329,7 @@ export function SupervisorDashboard({ sup }: { sup: SupData }) {
 
       <BottomNav items={NAV} active={tab} onChange={setTab} />
       <Toaster toast={toast} />
+      <SessionTimeout />
     </div>
   );
 }

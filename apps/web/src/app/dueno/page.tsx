@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Icon, type IconName } from '@/components/icons';
 import { BottomNav, type NavItem } from '@/components/BottomNav';
 import { Toaster, useToast } from '@/components/Toaster';
+import { SessionTimeout } from '@/components/SessionTimeout';
 import { RankingList } from '@/components/RankingList';
 import { Toggle } from '@/components/Toggle';
 import { OWNER_RANKING } from '@/lib/teamData';
@@ -648,6 +649,7 @@ export default function DuenoDashboard() {
 
       <BottomNav items={NAV} active={tab} onChange={goTab} />
       <Toaster toast={toast} />
+      <SessionTimeout />
     </div>
   );
 }

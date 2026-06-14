@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Icon, type IconName } from '@/components/icons';
 import { BottomNav, type NavItem } from '@/components/BottomNav';
 import { Toaster, useToast } from '@/components/Toaster';
+import { SessionTimeout } from '@/components/SessionTimeout';
 import { Toggle } from '@/components/Toggle';
 
 type Tab = 'inicio' | 'docs' | 'webhooks' | 'plan';
@@ -508,6 +509,7 @@ Authorization: Bearer pk_test_TU_API_KEY`}</CodeBlock>
 
       <BottomNav items={NAV} active={tab} onChange={setTab} />
       <Toaster toast={toast} />
+      <SessionTimeout />
     </div>
   );
 }
