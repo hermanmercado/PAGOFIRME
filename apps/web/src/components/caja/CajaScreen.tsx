@@ -289,14 +289,14 @@ export function CajaScreen({
 
       {/* Modal QR — el momento del cobro */}
       {modal && (
-        <div className="absolute inset-0 z-50 flex items-end bg-[rgba(10,12,21,0.88)] backdrop-blur-sm">
-          <div className="relative w-full overflow-hidden rounded-t-[22px] border-t border-wire bg-surface px-5 pb-7 pt-3.5 text-center">
-            {/* Confeti */}
+        <div className="absolute inset-0 z-50 flex items-end justify-center bg-[rgba(10,12,21,0.88)] backdrop-blur-sm">
+          <div className="relative max-h-full w-full overflow-hidden rounded-t-[22px] border-t border-wire bg-surface">
+            {/* Confeti: capa fija sobre el sheet, no scrollea */}
             {!waiting &&
               confetti.map((p, i) => (
                 <span
                   key={i}
-                  className="confetti-particle"
+                  className="confetti-particle z-10"
                   style={{
                     left: `${p.left}%`,
                     top: '28%',
@@ -308,7 +308,9 @@ export function CajaScreen({
                 />
               ))}
 
-            <div className="mx-auto mb-3 h-[3px] w-9 rounded bg-wire" />
+            {/* Contenido scrolleable: entra en pantallas pequeñas sin superponerse */}
+            <div className="max-h-[85vh] overflow-y-auto px-5 pb-7 pt-3.5 text-center">
+              <div className="mx-auto mb-3 h-[3px] w-9 rounded bg-wire" />
             {waiting ? (
               <>
                 <div className="font-heading text-base font-bold text-clean">QR generado</div>
@@ -393,6 +395,7 @@ export function CajaScreen({
                 Nuevo ticket
               </button>
             )}
+            </div>
           </div>
         </div>
       )}

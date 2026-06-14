@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/icons';
 import { BottomNav, type NavItem } from '@/components/BottomNav';
@@ -8,7 +8,7 @@ import { Toaster, useToast } from '@/components/Toaster';
 import { SessionTimeout } from '@/components/SessionTimeout';
 import { Toggle } from '@/components/Toggle';
 import { CajaScreen } from '@/components/caja/CajaScreen';
-import { bs, type Ticket } from '@/lib/caja';
+import { bs, loadTickets, saveTickets, type Ticket } from '@/lib/caja';
 import {
   dailyQrCode,
   dailyQrEnabled,
@@ -34,11 +34,22 @@ export default function VendedorDashboard() {
   const { toast, show } = useToast();
   const [tab, setTab] = useState<Tab>('caja');
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
   const [dailyCode, setDailyCode] = useState<string | null>(null);
   const [vendorDaily, setVendorDaily] = useState(true);
   const [globalDaily, setGlobalDaily] = useState(true);
+  const ticketsLoaded = useRef(false);
 
   const totalCobrado = tickets.reduce((s, t) => s + t.total, 0);
+
+  // Persistencia de tickets: sobreviven cambios de pestaña y recargas.
+  useEffect(() => {
+    setTickets(loadTickets());
+    ticketsLoaded.current = true;
+  }, []);
+  useEffect(() => {
+    if (ticketsLoaded.current) saveTickets(tickets);
+  }, [tickets]);
 
   // QR del día: si está habilitado y no se vio hoy, se muestra antes de la caja.
   useEffect(() => {
@@ -127,24 +138,67 @@ export default function VendedorDashboard() {
                   Aún no cobraste tickets hoy
                 </div>
               ) : (
-                tickets.map((t) => (
-                  <div key={t.id} className="flex items-center gap-2.5 border-b border-wire py-2.5">
-                    <div className="flex-1">
-                      <div className="font-mono text-xs font-medium text-clean">{t.id}</div>
-                      <div className="mt-0.5 text-[10px] text-fog">
-                        {t.hora} · {t.lineas.length} líneas
-                      </div>
+                tickets.map((t) => {
+                  const open = expandedTicket === t.id;
+                  return (
+                    <div key={t.id} className="border-b border-wire">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedTicket(open ? null : t.id)}
+                        className="flex w-full items-center gap-2.5 py-2.5 text-left transition-colors active:bg-surface"
+                      >
+                        <div className="flex-1">
+                          <div className="font-mono text-xs font-medium text-clean">{t.id}</div>
+                          <div className="mt-0.5 text-[10px] text-fog">
+                            {t.hora} · {t.lineas.length} líneas
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-heading text-sm font-semibold text-clean">
+                            Bs {bs(t.total)}
+                          </div>
+                          <span className="rounded-full bg-pay/10 px-1.5 text-[10px] text-pay">
+                            Cobrado
+                          </span>
+                        </div>
+                        <Icon
+                          name="chevron-down"
+                          className={`h-4 w-4 shrink-0 text-fog transition-transform ${
+                            open ? 'rotate-180' : ''
+                          }`}
+                        />
+                      </button>
+                      {open && (
+                        <div className="mb-2.5 overflow-hidden rounded-[10px] border border-wire bg-surface">
+                          <div className="flex items-center justify-between border-b border-wire px-3 py-2 text-[10px] uppercase tracking-wide text-fog">
+                            <span>Detalle del cobro</span>
+                            <span className="normal-case">{t.hora}</span>
+                          </div>
+                          {t.lineas.map((l, i) => (
+                            <div
+                              key={i}
+                              className="flex items-center gap-2 border-b border-wire px-3 py-2"
+                            >
+                              <span className="w-4 shrink-0 font-mono text-[10px] text-fog">
+                                {i + 1}
+                              </span>
+                              <span className="flex-1 font-mono text-[11px] text-ghost">{l.expr}</span>
+                              <span className="font-heading text-[12px] font-semibold text-clean">
+                                Bs {bs(l.monto)}
+                              </span>
+                            </div>
+                          ))}
+                          <div className="flex items-center justify-between px-3 py-2">
+                            <span className="text-[11px] font-medium text-clean">Total cobrado</span>
+                            <span className="font-heading text-sm font-bold text-cipher">
+                              Bs {bs(t.total)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div className="text-right">
-                      <div className="font-heading text-sm font-semibold text-clean">
-                        Bs {bs(t.total)}
-                      </div>
-                      <span className="rounded-full bg-pay/10 px-1.5 text-[10px] text-pay">
-                        Cobrado
-                      </span>
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
