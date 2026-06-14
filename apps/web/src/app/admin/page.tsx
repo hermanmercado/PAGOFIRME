@@ -149,9 +149,19 @@ export default function AdminDashboard() {
         ) : (
           <>
             <header className="flex shrink-0 items-center justify-between border-b border-wire px-[18px] py-3">
-              <div className="font-heading text-[15px] font-bold">
-                <span className="text-clean">pago</span>
-                <span className="text-cipher">firme</span>
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => router.push('/')}
+                  aria-label="Volver al login"
+                  className="text-ghost transition-colors active:text-cipher"
+                >
+                  <Icon name="arrow-left" className="h-5 w-5" />
+                </button>
+                <div className="font-heading text-[15px] font-bold">
+                  <span className="text-clean">pago</span>
+                  <span className="text-cipher">firme</span>
+                </div>
               </div>
               <span className="rounded-full border border-risk bg-[#2e2400] px-2.5 py-1 text-[11px] text-risk">
                 Superadmin

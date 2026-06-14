@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Icon, type IconName } from '@/components/icons';
 import { BottomNav, type NavItem } from '@/components/BottomNav';
 import { Toaster, useToast } from '@/components/Toaster';
@@ -127,6 +128,7 @@ function CodeBlock({ children }: { children: string }) {
 }
 
 export default function DeveloperPortal() {
+  const router = useRouter();
   const { toast, show } = useToast();
   const [tab, setTab] = useState<Tab>('inicio');
   const [keyVisible, setKeyVisible] = useState(false);
@@ -145,9 +147,19 @@ export default function DeveloperPortal() {
         {tab === 'inicio' && (
           <div className="flex min-h-0 flex-1 flex-col">
             <header className="flex shrink-0 items-center justify-between border-b border-wire px-[18px] py-3">
-              <div className="font-heading text-[15px] font-bold">
-                <span className="text-clean">pago</span>
-                <span className="text-cipher">firme</span>
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => router.push('/')}
+                  aria-label="Volver al login"
+                  className="text-ghost transition-colors active:text-[#a78bfa]"
+                >
+                  <Icon name="arrow-left" className="h-5 w-5" />
+                </button>
+                <div className="font-heading text-[15px] font-bold">
+                  <span className="text-clean">pago</span>
+                  <span className="text-cipher">firme</span>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1a0a2e] text-[10px] font-semibold text-[#a78bfa]">

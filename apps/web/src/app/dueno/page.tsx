@@ -134,9 +134,19 @@ export default function DuenoDashboard() {
           <div className="flex min-h-0 flex-1 flex-col">
             <header className="shrink-0 border-b border-wire px-[18px] pb-3 pt-2.5">
               <div className="flex items-center justify-between">
-                <div className="font-heading text-[15px] font-bold">
-                  <span className="text-clean">pago</span>
-                  <span className="text-cipher">firme</span>
+                <div className="flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => router.push('/')}
+                    aria-label="Volver al login"
+                    className="text-ghost transition-colors active:text-cipher"
+                  >
+                    <Icon name="arrow-left" className="h-5 w-5" />
+                  </button>
+                  <div className="font-heading text-[15px] font-bold">
+                    <span className="text-clean">pago</span>
+                    <span className="text-cipher">firme</span>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="flex h-7 w-7 items-center justify-center rounded-full border border-wire bg-[#1a1a2e] text-[10px] font-semibold text-ghost">
