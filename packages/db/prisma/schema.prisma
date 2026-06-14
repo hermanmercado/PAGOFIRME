@@ -1,0 +1,283 @@
+// PagoFirme — Esquema de base de datos
+// Pasarela de pagos QR multi-riel para Bolivia.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────────────────────────────────────
+// Autenticación y usuarios
+// ─────────────────────────────────────────────────────────────
+
+enum UserRole {
+  ADMIN
+  MERCHANT
+  CUSTOMER
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  CLOSED
+}
+
+model User {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  phone         String?    @unique
+  passwordHash  String
+  fullName      String
+  role          UserRole   @default(CUSTOMER)
+  status        UserStatus @default(PENDING)
+  emailVerified Boolean    @default(false)
+  phoneVerified Boolean    @default(false)
+
+  // 2FA (TOTP)
+  twoFactorEnabled Boolean  @default(false)
+  twoFactorSecret  String?
+  twoFactorBackup  String[] @default([])
+
+  merchant      Merchant?
+  refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  lastLogin DateTime?
+
+  @@index([role])
+  @@index([status])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  family    String // rotación: identifica la cadena de tokens
+  userAgent String?
+  ipAddress String?
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([family])
+  @@map("refresh_tokens")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Comercios (merchants)
+// ─────────────────────────────────────────────────────────────
+
+enum MerchantStatus {
+  PENDING_REVIEW
+  ACTIVE
+  SUSPENDED
+}
+
+model Merchant {
+  id           String         @id @default(cuid())
+  userId       String         @unique
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessName String
+  legalName    String?
+  nit          String?        @unique // Número de Identificación Tributaria (Bolivia)
+  category     String?
+  status       MerchantStatus @default(PENDING_REVIEW)
+
+  accounts     Account[]
+  qrCodes      QrCode[]
+  transactions Transaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@map("merchants")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Cuentas y saldos
+// ─────────────────────────────────────────────────────────────
+
+enum Currency {
+  BOB // Boliviano
+  USD
+}
+
+model Account {
+  id         String   @id @default(cuid())
+  merchantId String
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  currency   Currency @default(BOB)
+  // Saldo en la unidad menor (centavos) para evitar errores de punto flotante.
+  balance    BigInt   @default(0)
+
+  ledgerEntries LedgerEntry[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([merchantId, currency])
+  @@map("accounts")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Arquitectura multi-riel (payment rails)
+// ─────────────────────────────────────────────────────────────
+
+enum RailType {
+  BANK_QR // QR interoperable bancario (ASFI / BCB)
+  WALLET // Billeteras móviles
+  INTERNAL // Transferencias internas PagoFirme
+}
+
+model PaymentRail {
+  id          String   @id @default(cuid())
+  type        RailType
+  code        String   @unique // ej. "SIMPLE_QR", "TIGO_MONEY"
+  displayName String
+  provider    String? // banco o proveedor
+  enabled     Boolean  @default(true)
+  priority    Int      @default(0) // orden de enrutamiento
+  config      Json     @default("{}")
+
+  transactions Transaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([enabled, priority])
+  @@map("payment_rails")
+}
+
+// ─────────────────────────────────────────────────────────────
+// QR y transacciones
+// ─────────────────────────────────────────────────────────────
+
+enum QrType {
+  STATIC // monto abierto, reutilizable
+  DYNAMIC // monto fijo, un solo uso
+}
+
+enum QrStatus {
+  ACTIVE
+  PAID
+  EXPIRED
+  CANCELLED
+}
+
+model QrCode {
+  id          String    @id @default(cuid())
+  merchantId  String
+  merchant    Merchant  @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  type        QrType    @default(DYNAMIC)
+  status      QrStatus  @default(ACTIVE)
+  currency    Currency  @default(BOB)
+  amount      BigInt? // null para QR estáticos (monto abierto)
+  reference   String? // referencia del comercio
+  description String?
+  payload     String    @unique // contenido EMVCo del QR
+  expiresAt   DateTime?
+
+  transactions Transaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([merchantId, status])
+  @@map("qr_codes")
+}
+
+enum TransactionStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+model Transaction {
+  id            String            @id @default(cuid())
+  merchantId    String
+  merchant      Merchant          @relation(fields: [merchantId], references: [id])
+  qrCodeId      String?
+  qrCode        QrCode?           @relation(fields: [qrCodeId], references: [id])
+  railId        String?
+  rail          PaymentRail?      @relation(fields: [railId], references: [id])
+  status        TransactionStatus @default(PENDING)
+  currency      Currency          @default(BOB)
+  amount        BigInt // en centavos
+  fee           BigInt            @default(0) // cero comisiones :)
+  netAmount     BigInt // amount - fee
+  payerName     String?
+  payerDocument String?
+  externalRef   String? // id del proveedor / banco
+  metadata      Json              @default("{}")
+  failureReason String?
+
+  ledgerEntries LedgerEntry[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  settledAt DateTime?
+
+  @@index([merchantId, status])
+  @@index([createdAt])
+  @@index([externalRef])
+  @@map("transactions")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Libro mayor (double-entry ledger)
+// ─────────────────────────────────────────────────────────────
+
+enum LedgerDirection {
+  DEBIT
+  CREDIT
+}
+
+model LedgerEntry {
+  id            String          @id @default(cuid())
+  accountId     String
+  account       Account         @relation(fields: [accountId], references: [id])
+  transactionId String
+  transaction   Transaction     @relation(fields: [transactionId], references: [id])
+  direction     LedgerDirection
+  amount        BigInt
+  balanceAfter  BigInt
+  createdAt     DateTime        @default(now())
+
+  @@index([accountId])
+  @@index([transactionId])
+  @@map("ledger_entries")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Auditoría
+// ─────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String?
+  entityId  String?
+  ipAddress String?
+  userAgent String?
+  metadata  Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

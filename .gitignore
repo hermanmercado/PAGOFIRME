@@ -141,3 +141,25 @@ dist
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 .vite/
+
+# Turborepo
+.turbo
+
+# Expo
+.expo/
+.expo-shared/
+*.orig.*
+web-build/
+expo-env.d.ts
+
+# Prisma
+packages/db/prisma/generated
+.prisma/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+*.swp

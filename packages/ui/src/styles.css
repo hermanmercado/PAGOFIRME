@@ -1,0 +1,6 @@
+/* Estilos base compartidos de PagoFirme.
+   Las apps importan este archivo y aplican sus propias directivas de Tailwind. */
+:root {
+  --pf-brand: #06a574;
+  --pf-ink: #0c1b16;
+}

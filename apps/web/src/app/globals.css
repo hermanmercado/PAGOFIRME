@@ -1,0 +1,108 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #ffffff;
+  --foreground: #0c1b16;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0c1b16;
+    --foreground: #e6fbf3;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* ── Animaciones del modal QR (cobro) ──────────────────────
+   Replican las del prototipo pagofirme_v3.                  */
+
+/* Glow cian que late en el borde del QR mientras se espera el pago. */
+@keyframes qrPulse {
+  0%,
+  100% {
+    opacity: 0.15;
+    box-shadow:
+      inset 0 0 0 1.5px #22d3ee,
+      0 0 12px rgba(34, 211, 238, 0.15);
+  }
+  50% {
+    opacity: 1;
+    box-shadow:
+      inset 0 0 0 2px #22d3ee,
+      0 0 24px rgba(34, 211, 238, 0.35);
+  }
+}
+.qr-pulse-ring {
+  animation: qrPulse 1.2s ease-in-out infinite;
+}
+
+/* El círculo de éxito se dibuja (stroke-dashoffset 200 → 0). */
+@keyframes drawCircle {
+  from {
+    stroke-dashoffset: 200;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.anim-draw-circle {
+  animation: drawCircle 0.7s ease 0.1s forwards;
+}
+
+/* El checkmark aparece con rebote. */
+@keyframes scaleIn {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.anim-scale-in {
+  animation: scaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.72s both;
+}
+
+/* Flash cian del contenedor al confirmarse el pago. */
+@keyframes flashCyan {
+  0% {
+    background: #0f1120;
+  }
+  30% {
+    background: rgba(34, 211, 238, 0.18);
+  }
+  100% {
+    background: #0f1120;
+  }
+}
+.anim-flash {
+  animation: flashCyan 0.6s ease forwards;
+}
+
+/* Confeti que cae al confirmar el cobro. */
+@keyframes confettiFall {
+  0% {
+    transform: translateY(0) rotate(0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(120px) rotate(540deg) scale(0);
+    opacity: 0;
+  }
+}
+.confetti-particle {
+  position: absolute;
+  border-radius: 1px;
+  pointer-events: none;
+  animation: confettiFall 1.2s ease forwards;
+}
