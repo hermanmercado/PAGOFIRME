@@ -6,7 +6,6 @@
 
 const VENDOR_KEY = 'pf:daily-qr-vendor';
 const GLOBAL_KEY = 'pf:daily-qr-global';
-const SEEN_KEY = 'pf:daily-qr-seen';
 
 function readBool(key: string, fallback: boolean): boolean {
   if (typeof window === 'undefined') return fallback;
@@ -35,12 +34,16 @@ export function todayKey(): string {
   ).padStart(2, '0')}`;
 }
 
-/** Código del QR determinista por día (mismo día → mismo código). */
-export function dailyQrCode(): string {
+/**
+ * Código del QR determinista por fecha + vendedor + tienda (mismo día y mismo
+ * operador → mismo código). Se calcula en el cliente, sin servidor.
+ */
+export function dailyQrCode(vendor: string, tienda: string): string {
   const key = todayKey();
+  const seed = `${key}|${vendor}|${tienda}`;
   let h = 2166136261;
-  for (let i = 0; i < key.length; i++) {
-    h ^= key.charCodeAt(i);
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
     h = Math.imul(h, 16777619);
   }
   const n = (h >>> 0) % 1_000_000;
@@ -64,20 +67,9 @@ export const setGlobalDailyQr = (on: boolean) => writeBool(GLOBAL_KEY, on);
 /** Habilitado sólo si el dueño no lo desactivó globalmente y el vendedor lo activó. */
 export const dailyQrEnabled = () => getGlobalDailyQr() && getVendorDailyQr();
 
-export function dailyQrSeenToday(): boolean {
-  if (typeof window === 'undefined') return true;
-  try {
-    return window.localStorage.getItem(SEEN_KEY) === todayKey();
-  } catch {
-    return true;
-  }
-}
-
-export function markDailyQrSeen() {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(SEEN_KEY, todayKey());
-  } catch {
-    /* almacenamiento no disponible */
-  }
+/** Milisegundos hasta las 00:00:01 del día siguiente (para refrescar el QR en vivo). */
+export function msUntilNextDay(): number {
+  const now = new Date();
+  const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 1, 0);
+  return next.getTime() - now.getTime();
 }
