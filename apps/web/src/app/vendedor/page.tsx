@@ -1,13 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/icons';
 import { BottomNav, type NavItem } from '@/components/BottomNav';
 import { Toaster, useToast } from '@/components/Toaster';
 import { SessionTimeout } from '@/components/SessionTimeout';
+import { Toggle } from '@/components/Toggle';
 import { CajaScreen } from '@/components/caja/CajaScreen';
 import { bs, type Ticket } from '@/lib/caja';
+import {
+  dailyQrCode,
+  dailyQrEnabled,
+  dailyQrSeenToday,
+  getGlobalDailyQr,
+  getVendorDailyQr,
+  markDailyQrSeen,
+  setVendorDailyQr,
+  todayLabel,
+} from '@/lib/dailyQr';
 
 type Tab = 'caja' | 'tickets' | 'resumen' | 'perfil';
 
@@ -23,8 +34,25 @@ export default function VendedorDashboard() {
   const { toast, show } = useToast();
   const [tab, setTab] = useState<Tab>('caja');
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [dailyCode, setDailyCode] = useState<string | null>(null);
+  const [vendorDaily, setVendorDaily] = useState(true);
+  const [globalDaily, setGlobalDaily] = useState(true);
 
   const totalCobrado = tickets.reduce((s, t) => s + t.total, 0);
+
+  // QR del día: si está habilitado y no se vio hoy, se muestra antes de la caja.
+  useEffect(() => {
+    setVendorDaily(getVendorDailyQr());
+    setGlobalDaily(getGlobalDailyQr());
+    if (dailyQrEnabled() && !dailyQrSeenToday()) {
+      setDailyCode(dailyQrCode());
+    }
+  }, []);
+
+  function cerrarDailyQr() {
+    markDailyQrSeen();
+    setDailyCode(null);
+  }
 
   return (
     <div className="relative mx-auto flex h-dvh w-full max-w-[420px] flex-col overflow-hidden bg-void">
@@ -215,6 +243,26 @@ export default function VendedorDashboard() {
                 </div>
               </div>
 
+              <div className="mb-2 flex items-center gap-3 rounded-[14px] border border-wire bg-surface px-3.5 py-3">
+                <Icon name="qrcode" className="h-5 w-5 shrink-0 text-ghost" />
+                <div className="flex-1">
+                  <div className="text-[13px] text-clean">QR diario automático</div>
+                  <div className="text-[10px] text-fog">
+                    {globalDaily
+                      ? 'Muestra el QR del día al abrir la app'
+                      : 'Desactivado por el dueño'}
+                  </div>
+                </div>
+                <Toggle
+                  checked={globalDaily && vendorDaily}
+                  disabled={!globalDaily}
+                  onChange={(on) => {
+                    setVendorDailyQr(on);
+                    setVendorDaily(on);
+                  }}
+                />
+              </div>
+
               <button
                 type="button"
                 onClick={() => router.push('/')}
@@ -233,6 +281,38 @@ export default function VendedorDashboard() {
       </div>
 
       <BottomNav items={NAV} active={tab} onChange={setTab} />
+
+      {/* QR del día — se muestra una vez al abrir la app, antes de la caja. */}
+      {dailyCode && (
+        <div className="absolute inset-0 z-[55] flex flex-col items-center justify-center gap-3 bg-void px-8 text-center">
+          <div className="font-heading text-[15px] font-bold">
+            <span className="text-clean">pago</span>
+            <span className="text-cipher">firme</span>
+          </div>
+          <div>
+            <div className="font-heading text-lg font-bold text-clean">QR del día</div>
+            <div className="mt-0.5 text-[11px] capitalize text-fog">{todayLabel()}</div>
+          </div>
+          <div className="flex h-[150px] w-[150px] items-center justify-center rounded-[16px] border border-cipher/40 bg-surface">
+            <Icon name="qrcode" className="h-24 w-24 text-cipher" />
+          </div>
+          <div className="rounded-full border border-wire bg-surface px-3 py-1 font-mono text-[12px] text-cipher">
+            {dailyCode}
+          </div>
+          <p className="max-w-[260px] text-[11px] leading-relaxed text-ghost">
+            Válido sólo hoy · cambia automáticamente cada día. Mostralo para abrir tu jornada de
+            cobros.
+          </p>
+          <button
+            type="button"
+            onClick={cerrarDailyQr}
+            className="mt-1 w-full max-w-[260px] rounded-[14px] bg-cipher py-3 text-[13px] font-semibold text-[#0A0C15] transition active:opacity-90"
+          >
+            Ir a la caja
+          </button>
+        </div>
+      )}
+
       <Toaster toast={toast} />
       <SessionTimeout />
     </div>

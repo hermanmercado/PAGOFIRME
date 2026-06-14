@@ -10,6 +10,7 @@ import { RankingList } from '@/components/RankingList';
 import { Toggle } from '@/components/Toggle';
 import { OWNER_RANKING } from '@/lib/teamData';
 import { FRAUD_EVENT, getFraudAlerts, type FraudAlert } from '@/lib/security';
+import { getGlobalDailyQr, setGlobalDailyQr } from '@/lib/dailyQr';
 
 type Tab = 'inicio' | 'equipo' | 'reportes' | 'config' | 'mas';
 type MasView = 'hub' | 'contador' | 'links';
@@ -99,9 +100,11 @@ export default function DuenoDashboard() {
   const [tab, setTab] = useState<Tab>('inicio');
   const [masView, setMasView] = useState<MasView>('hub');
   const [fraudAlerts, setFraudAlerts] = useState<FraudAlert[]>([]);
+  const [dailyGlobal, setDailyGlobal] = useState(true);
 
   // Alertas de fraude generadas por vendedores (persistidas en localStorage).
   useEffect(() => {
+    setDailyGlobal(getGlobalDailyQr());
     const refresh = () => setFraudAlerts(getFraudAlerts());
     refresh();
     window.addEventListener(FRAUD_EVENT, refresh);
@@ -463,8 +466,22 @@ export default function DuenoDashboard() {
                 <ConfigRow icon="alert-triangle" title="Alertas ventas inusuales" sub="Cuando supere 3× el promedio del vendedor">
                   <Toggle defaultOn />
                 </ConfigRow>
-                <ConfigRow icon="device-mobile" title="Sesión única por vendedor" sub="Cierra sesión anterior si abre nueva" last>
+                <ConfigRow icon="device-mobile" title="Sesión única por vendedor" sub="Cierra sesión anterior si abre nueva">
                   <Toggle defaultOn />
+                </ConfigRow>
+                <ConfigRow
+                  icon="qrcode"
+                  title="QR diario para vendedores"
+                  sub="Aparece al abrir la app · desactivá para todas las tiendas"
+                  last
+                >
+                  <Toggle
+                    checked={dailyGlobal}
+                    onChange={(on) => {
+                      setGlobalDailyQr(on);
+                      setDailyGlobal(on);
+                    }}
+                  />
                 </ConfigRow>
               </div>
 
