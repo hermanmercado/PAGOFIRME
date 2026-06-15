@@ -9,6 +9,10 @@ import { clearLogin, getLockRemaining, LOCK_MS, recordFailedLogin } from '@/lib/
 /** Contraseña del login manual en la demo. */
 const DEMO_PASSWORD = 'pagofirme';
 
+/** Versión de la app + commit del build (inyectado por Railway; 'dev' en local). */
+const APP_VERSION = '2.1.0';
+const BUILD_COMMIT = process.env.NEXT_PUBLIC_COMMIT_SHA ?? 'dev';
+
 const mmss = (ms: number) => {
   const total = Math.ceil(ms / 1000);
   const m = Math.floor(total / 60);
@@ -227,6 +231,10 @@ export default function LoginPage() {
             </button>
           ))}
         </div>
+
+        <p className="mt-5 text-center text-[10px] text-fog">
+          PagoFirme v{APP_VERSION} · build {BUILD_COMMIT}
+        </p>
       </div>
     </main>
   );

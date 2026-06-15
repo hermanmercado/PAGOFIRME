@@ -5,6 +5,11 @@ const nextConfig: NextConfig = {
   // Transpila los paquetes internos del monorepo.
   transpilePackages: ['@pagofirme/ui'],
   typedRoutes: true,
+  // Expone el commit del build (Railway inyecta RAILWAY_GIT_COMMIT_SHA) al bundle.
+  // Se inlinea en build; en local queda 'dev'.
+  env: {
+    NEXT_PUBLIC_COMMIT_SHA: (process.env.RAILWAY_GIT_COMMIT_SHA ?? '').slice(0, 7) || 'dev',
+  },
   webpack: (config) => {
     // Los paquetes internos se consumen como código fuente TS y usan imports con
     // extensión explícita `.js` (estilo ESM). tsc los resuelve vía
