@@ -190,7 +190,7 @@ export default function LoginPage() {
             className="flex w-full items-center justify-center gap-2 rounded-[14px] bg-cipher px-4 py-3 text-sm font-semibold text-[#0A0C15] transition active:scale-[.99] active:opacity-90 disabled:bg-lift disabled:text-fog"
           >
             <Icon name="login" className="h-[18px] w-[18px]" />
-            {locked ? `Bloqueado · ${mmss(lockLeft)}` : 'Iniciar sesión'}
+            {locked ? `Bloqueado · ${mmss(lockLeft)}` : 'Ingresar →'}
           </button>
         </form>
 
