@@ -1,6 +1,8 @@
 /** Tipos y utilidades compartidas por las cajas registradoras (vendedor y supervisor). */
 
 export interface Linea {
+  /** Id estable por línea (clave de React; no usar el índice). */
+  id: string;
   expr: string;
   monto: number;
 }
@@ -14,7 +16,7 @@ export interface Ticket {
   ts: number;
 }
 
-export const ticketId = (n: number) => `#T-0${String(n).padStart(3, '0')}`;
+export const ticketId = (n: number) => `#T-${String(n).padStart(4, '0')}`;
 
 export const bs = (n: number) =>
   n.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 });

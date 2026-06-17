@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@/components/icons';
 import { bs, evalExpr, ticketId, type Linea, type Ticket } from '@/lib/caja';
 import { whatsappShareUrl } from '@/lib/payLink';
@@ -49,6 +49,8 @@ export function CajaScreen({
 }: CajaScreenProps) {
   const [expr, setExpr] = useState('');
   const [lineas, setLineas] = useState<Linea[]>([]);
+  // Contador para ids de línea estables (clave de React; sobrevive re-renders).
+  const lineSeq = useRef(0);
   const [tnum, setTnum] = useState(ticketStart);
   const [hora, setHora] = useState('');
   const [modal, setModal] = useState<{ total: number; status: 'waiting' | 'paid' } | null>(null);
@@ -93,11 +95,12 @@ export function CajaScreen({
     setExpr((e) => e + (v === '×' ? '*' : v));
   }
   function igual() {
-    const r = evalExpr(expr);
-    if (r !== null && r >= 0) setExpr(String(parseFloat(r.toFixed(2))));
+    // El resultado ya se muestra en vivo (calcVal) en la pantalla de la
+    // calculadora; `=` no colapsa la expresión, así se preserva (p. ej. "2×3").
   }
   function agregarMonto(m: number) {
-    setLineas((ls) => [...ls, { expr: String(m), monto: m }]);
+    const id = `l-${lineSeq.current++}`;
+    setLineas((ls) => [...ls, { id, expr: String(m), monto: m }]);
     show(`Bs ${m} agregado al ticket`, 'ok');
   }
   function agregarLinea() {
@@ -107,7 +110,8 @@ export function CajaScreen({
       show(`Monto supera el límite autorizado (Bs ${limit})`, 'warn');
       return;
     }
-    setLineas((ls) => [...ls, { expr: display, monto: parseFloat(val.toFixed(2)) }]);
+    const id = `l-${lineSeq.current++}`;
+    setLineas((ls) => [...ls, { id, expr: display, monto: parseFloat(val.toFixed(2)) }]);
     setExpr('');
   }
   function eliminarLinea(i: number) {
@@ -199,7 +203,7 @@ export function CajaScreen({
           </div>
         ) : (
           lineas.map((l, i) => (
-            <div key={i} className="flex items-center gap-2.5 border-b border-wire px-[18px] py-2.5">
+            <div key={l.id} className="flex items-center gap-2.5 border-b border-wire px-[18px] py-2.5">
               <span className="w-3.5 shrink-0 font-mono text-[11px] text-fog">{i + 1}</span>
               <span className="flex-1 font-mono text-[13px] text-ghost">{l.expr}</span>
               <span className="min-w-[78px] text-right font-heading text-sm font-semibold text-clean">
