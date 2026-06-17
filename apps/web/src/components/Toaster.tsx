@@ -27,7 +27,12 @@ export function useToast() {
     setToast((prev) => ({ msg, kind, seq: (prev?.seq ?? 0) + 1 }));
   }
 
-  return { toast, show };
+  /** Descarta el toast actual de inmediato (p. ej. al navegar de pestaña). */
+  function hide() {
+    setToast(null);
+  }
+
+  return { toast, show, hide };
 }
 
 export function Toaster({ toast }: { toast: ToastState | null }) {

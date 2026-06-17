@@ -22,8 +22,14 @@ const NAV: NavItem<Tab>[] = [
 
 export function SupervisorDashboard({ sup }: { sup: SupData }) {
   const router = useRouter();
-  const { toast, show } = useToast();
+  const { toast, show, hide } = useToast();
   const [tab, setTab] = useState<Tab>('inicio');
+  // Al navegar de pestaña, descarta cualquier toast (incl. la celebración del
+  // cobro) para que no quede flotando sobre otra sección.
+  const goTab = (t: Tab) => {
+    hide();
+    setTab(t);
+  };
 
   return (
     <div className="relative mx-auto flex h-dvh w-full max-w-[420px] flex-col overflow-hidden bg-void">
@@ -328,7 +334,7 @@ export function SupervisorDashboard({ sup }: { sup: SupData }) {
         )}
       </div>
 
-      <BottomNav items={NAV} active={tab} onChange={setTab} />
+      <BottomNav items={NAV} active={tab} onChange={goTab} />
       <Toaster toast={toast} />
       <SessionTimeout />
     </div>

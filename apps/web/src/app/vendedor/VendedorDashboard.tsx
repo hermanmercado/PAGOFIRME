@@ -52,8 +52,14 @@ const NAV: NavItem<Tab>[] = [
 
 export default function VendedorDashboard() {
   const router = useRouter();
-  const { toast, show } = useToast();
+  const { toast, show, hide } = useToast();
   const [tab, setTab] = useState<Tab>('caja');
+  // Al navegar de pestaña, descarta cualquier toast (incl. la celebración del
+  // cobro) para que no quede flotando sobre otra sección.
+  const goTab = (t: Tab) => {
+    hide();
+    setTab(t);
+  };
   // Estado inicializado de forma síncrona (el componente es client-only, ssr:false),
   // así el QR del día YA está en el primer render: cero loading, cero flash.
   const [tickets, setTickets] = useState<Ticket[]>(() => loadTickets());
@@ -426,7 +432,7 @@ export default function VendedorDashboard() {
         )}
       </div>
 
-      <BottomNav items={NAV} active={tab} onChange={setTab} />
+      <BottomNav items={NAV} active={tab} onChange={goTab} />
 
       {/* QR del día — presente en el PRIMER render: instantáneo, sin loading ni animación. */}
       {dailyCode && (
