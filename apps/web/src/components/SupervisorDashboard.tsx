@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/icons';
 import { BottomNav, type NavItem } from '@/components/BottomNav';
@@ -24,12 +24,12 @@ export function SupervisorDashboard({ sup }: { sup: SupData }) {
   const router = useRouter();
   const { toast, show, hide } = useToast();
   const [tab, setTab] = useState<Tab>('inicio');
-  // Al navegar de pestaña, descarta cualquier toast (incl. la celebración del
-  // cobro) para que no quede flotando sobre otra sección.
-  const goTab = (t: Tab) => {
+
+  // Cada vez que cambia de pestaña, descarta cualquier toast (incl. la
+  // celebración del cobro) para que no quede flotando sobre otra sección.
+  useEffect(() => {
     hide();
-    setTab(t);
-  };
+  }, [tab, hide]);
 
   return (
     <div className="relative mx-auto flex h-dvh w-full max-w-[420px] flex-col overflow-hidden bg-void">
@@ -334,7 +334,7 @@ export function SupervisorDashboard({ sup }: { sup: SupData }) {
         )}
       </div>
 
-      <BottomNav items={NAV} active={tab} onChange={goTab} />
+      <BottomNav items={NAV} active={tab} onChange={setTab} />
       <Toaster toast={toast} />
       <SessionTimeout />
     </div>

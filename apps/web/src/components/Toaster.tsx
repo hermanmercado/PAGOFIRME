@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Icon } from '@/components/icons';
 
 export type ToastKind = 'ok' | 'warn' | 'celebrate';
@@ -23,14 +23,17 @@ export function useToast() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  function show(msg: string, kind: ToastKind = 'ok') {
+  // Estables entre renders (useCallback con deps vacías): así los efectos que
+  // dependan de `show`/`hide` no se re-ejecutan en cada render y no re-disparan
+  // el toast en loop.
+  const show = useCallback((msg: string, kind: ToastKind = 'ok') => {
     setToast((prev) => ({ msg, kind, seq: (prev?.seq ?? 0) + 1 }));
-  }
+  }, []);
 
   /** Descarta el toast actual de inmediato (p. ej. al navegar de pestaña). */
-  function hide() {
+  const hide = useCallback(() => {
     setToast(null);
-  }
+  }, []);
 
   return { toast, show, hide };
 }
