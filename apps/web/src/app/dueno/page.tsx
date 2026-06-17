@@ -8,6 +8,7 @@ import { Toaster, useToast } from '@/components/Toaster';
 import { SessionTimeout } from '@/components/SessionTimeout';
 import { RankingList } from '@/components/RankingList';
 import { Toggle } from '@/components/Toggle';
+import { BCB_MAX } from '@/lib/caja';
 import { OWNER_RANKING } from '@/lib/teamData';
 import { FRAUD_EVENT, getFraudAlerts, type FraudAlert } from '@/lib/security';
 import { getGlobalDailyQr, setGlobalDailyQr } from '@/lib/dailyQr';
@@ -101,6 +102,18 @@ export default function DuenoDashboard() {
   const [masView, setMasView] = useState<MasView>('hub');
   const [fraudAlerts, setFraudAlerts] = useState<FraudAlert[]>([]);
   const [dailyGlobal, setDailyGlobal] = useState(true);
+  // NIVEL 2 — Límite por ticket configurable por el dueño. Siempre <= BCB_MAX.
+  const [ticketLimit, setTicketLimit] = useState('2000');
+
+  function onTicketLimitChange(value: string) {
+    const digits = value.replace(/\D/g, '');
+    if (Number(digits) > BCB_MAX) {
+      show(`No puede superar el límite BCB (Bs ${BCB_MAX.toLocaleString('es-BO')})`, 'warn');
+      setTicketLimit(String(BCB_MAX));
+      return;
+    }
+    setTicketLimit(digits);
+  }
 
   // Alertas de fraude generadas por vendedores (persistidas en localStorage).
   useEffect(() => {
@@ -461,7 +474,23 @@ export default function DuenoDashboard() {
 
               <div className="mb-1.5 px-1 text-[11px] font-medium text-ghost">Control de vendedores</div>
               <div className="mb-2 overflow-hidden rounded-[14px] border border-wire bg-surface">
-                <ConfigRow icon="coin" title="Límite por ticket" sub="Centro: Bs 2,000 · Sur: Bs 1,500" arrow />
+                <ConfigRow
+                  icon="coin"
+                  title="Límite por ticket"
+                  sub={`Tope BCB: Bs ${BCB_MAX.toLocaleString('es-BO')} · no se puede superar`}
+                >
+                  <div className="flex items-center gap-1">
+                    <span className="text-[11px] text-fog">Bs</span>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      aria-label="Límite por ticket en bolivianos"
+                      value={ticketLimit}
+                      onChange={(e) => onTicketLimitChange(e.target.value)}
+                      className="w-20 rounded-[8px] border border-wire bg-void px-2 py-1 text-right text-[12px] text-clean outline-none focus:border-cipher"
+                    />
+                  </div>
+                </ConfigRow>
                 <ConfigRow icon="clock" title="Horario de operación" sub="Centro: 8am–6pm · Sur: 9am–7pm" arrow />
                 <ConfigRow icon="alert-triangle" title="Alertas ventas inusuales" sub="Cuando supere 3× el promedio del vendedor">
                   <Toggle defaultOn />

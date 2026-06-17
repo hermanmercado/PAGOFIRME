@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '@/components/icons';
-import { bs, evalExpr, ticketId, type Linea, type Ticket } from '@/lib/caja';
+import { BCB_MAX, bs, evalExpr, ticketId, type Linea, type Ticket } from '@/lib/caja';
 import { whatsappShareUrl } from '@/lib/payLink';
 import { recordQr, reportUnusualSale } from '@/lib/security';
 import type { ToastKind } from '@/components/Toaster';
@@ -141,6 +141,12 @@ export function CajaScreen({
   }
   function generarQR(viaWA = false) {
     if (!lineas.length) return;
+
+    // NIVEL 1 — Tope BCB: validación obligatoria antes que cualquier otra.
+    if (total > BCB_MAX) {
+      show(`Supera el límite BCB (Bs ${BCB_MAX.toLocaleString('es-BO')})`, 'warn');
+      return;
+    }
 
     // Antifraude: tasa de QR (> 10/min) y cobro inusual (> 3x el promedio).
     if (actor) {

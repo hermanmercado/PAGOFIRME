@@ -1,5 +1,13 @@
 /** Tipos y utilidades compartidas por las cajas registradoras (vendedor y supervisor). */
 
+/**
+ * NIVEL 1 — Tope máximo por cobro impuesto por el BCB (Banco Central de Bolivia).
+ * Límite regulatorio fijo: nunca cambia y es la primera capa de validación
+ * obligatoria. Ningún límite configurable (dueño/supervisor, NIVEL 2) puede
+ * superarlo.
+ */
+export const BCB_MAX = 50_000;
+
 export interface Linea {
   /** Id estable por línea (clave de React; no usar el índice). */
   id: string;
