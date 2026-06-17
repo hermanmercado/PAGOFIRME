@@ -9,6 +9,8 @@ export interface QrMatrixProps {
   code: string;
   size?: number;
   className?: string;
+  /** Texto accesible. Es una matriz decorativa (demo), no un QR escaneable. */
+  label?: string;
 }
 
 const N = 25;
@@ -56,7 +58,7 @@ function inSeparator(r: number, c: number): boolean {
   );
 }
 
-export function QrMatrix({ code, size = 168, className }: QrMatrixProps) {
+export function QrMatrix({ code, size = 168, className, label = 'Código QR (demo)' }: QrMatrixProps) {
   const rng = mulberry32(hashStr(code));
   const rects: React.ReactNode[] = [];
   for (let r = 0; r < N; r++) {
@@ -78,7 +80,7 @@ export function QrMatrix({ code, size = 168, className }: QrMatrixProps) {
       shapeRendering="crispEdges"
       className={className}
       role="img"
-      aria-label="Código QR del día"
+      aria-label={label}
     >
       <rect x={-1} y={-1} width={N + 2} height={N + 2} fill="#ffffff" />
       <g fill="#0A0C15">{rects}</g>

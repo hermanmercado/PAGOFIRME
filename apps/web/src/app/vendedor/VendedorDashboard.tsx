@@ -72,7 +72,14 @@ export default function VendedorDashboard() {
   const [vendorDaily, setVendorDaily] = useState(() => getVendorDailyQr());
   const globalDaily = getGlobalDailyQr();
 
-  const totalCobrado = tickets.reduce((s, t) => s + t.total, 0);
+  // Solo los tickets de hoy (igual criterio que el filtro "Hoy" del historial),
+  // para que el resumen "Total cobrado hoy" no sume días anteriores persistidos.
+  const totalCobrado = useMemo(() => {
+    const from = filterFrom('hoy');
+    return tickets
+      .filter((t) => (t.ts ?? Date.now()) >= from)
+      .reduce((s, t) => s + t.total, 0);
+  }, [tickets]);
 
   // Historial filtrado por fecha + búsqueda (por ID o monto).
   const filteredTickets = useMemo(() => {
@@ -446,7 +453,7 @@ export default function VendedorDashboard() {
             <div className="mt-0.5 text-[11px] capitalize text-fog">{todayLabel()}</div>
           </div>
           <div className="rounded-[18px] bg-white p-3">
-            <QrMatrix code={dailyCode} size={176} />
+            <QrMatrix code={dailyCode} size={176} label="Código QR del día (demo)" />
           </div>
           <div className="rounded-full border border-wire bg-surface px-3 py-1 font-mono text-[12px] text-cipher">
             {dailyCode}

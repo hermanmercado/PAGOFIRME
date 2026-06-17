@@ -26,6 +26,8 @@ export interface PayLinkInfo {
   sucursal: string;
   /** Iniciales para el avatar. */
   iniciales: string;
+  /** true solo si el código está registrado; el fallback genérico es false. */
+  verified: boolean;
 }
 
 const REGISTRY: Record<string, PayLinkInfo> = {
@@ -35,6 +37,7 @@ const REGISTRY: Record<string, PayLinkInfo> = {
     vendedor: 'Carlos Arias',
     sucursal: 'Tienda Centro',
     iniciales: 'CA',
+    verified: true,
   },
   'rosa-sur': {
     codigo: 'rosa-sur',
@@ -42,6 +45,7 @@ const REGISTRY: Record<string, PayLinkInfo> = {
     vendedor: 'Rosa Mamani',
     sucursal: 'Tienda Sur · El Alto',
     iniciales: 'RM',
+    verified: true,
   },
 };
 
@@ -69,6 +73,7 @@ export function resolvePayLink(codigo: string): PayLinkInfo {
     vendedor: 'Cobro directo',
     sucursal: 'Bolivia',
     iniciales: initials('Cobro directo'),
+    verified: false,
   };
 }
 

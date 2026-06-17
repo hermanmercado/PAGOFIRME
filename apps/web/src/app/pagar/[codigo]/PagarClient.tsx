@@ -100,10 +100,17 @@ export function PagarClient({ info }: { info: PayLinkInfo }) {
               {info.vendedor} · {info.sucursal}
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-1 rounded-full border border-pay/25 bg-pay/[0.07] px-2 py-0.5 text-[10px] text-pay">
-            <Icon name="shield" className="h-3 w-3" />
-            Seguro
-          </div>
+          {info.verified ? (
+            <div className="flex shrink-0 items-center gap-1 rounded-full border border-pay/25 bg-pay/[0.07] px-2 py-0.5 text-[10px] text-pay">
+              <Icon name="shield" className="h-3 w-3" />
+              Seguro
+            </div>
+          ) : (
+            <div className="flex shrink-0 items-center gap-1 rounded-full border border-risk/30 bg-risk/[0.07] px-2 py-0.5 text-[10px] text-risk">
+              <Icon name="alert-triangle" className="h-3 w-3" />
+              No verificado
+            </div>
+          )}
         </div>
 
         {!ticket ? (
@@ -185,7 +192,7 @@ export function PagarClient({ info }: { info: PayLinkInfo }) {
             {waiting ? (
               <>
                 <div className="font-heading text-base font-bold text-clean">QRticket listo</div>
-                <div className="mb-3 text-[11px] text-ghost">Escaneá con tu app bancaria</div>
+                <div className="mb-3 text-[11px] text-ghost">Mostrá este código al cliente</div>
               </>
             ) : (
               <>
@@ -199,7 +206,7 @@ export function PagarClient({ info }: { info: PayLinkInfo }) {
 
             {waiting ? (
               <div className="relative rounded-[16px] bg-white p-3">
-                <QrMatrix code={payload} size={188} />
+                <QrMatrix code={payload} size={188} label="Código QR de pago (demo)" />
                 <span className="qr-pulse-ring pointer-events-none absolute inset-0 rounded-[16px]" />
               </div>
             ) : (
