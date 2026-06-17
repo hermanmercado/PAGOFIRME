@@ -109,6 +109,75 @@ body {
   animation: celebratePop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
+/* ── Login: ícono QR con escáner futurista (estilo SpaceX/aeropuerto) ──
+   Una línea cian baja por el ícono dejando un rastro de glow, en loop de 3s,
+   sobre un pulso suave de brillo de fondo. */
+
+/* Pulso de brillo de fondo del recuadro del ícono QR. */
+@keyframes qrGlowPulse {
+  0%,
+  100% {
+    box-shadow: 0 0 16px rgba(34, 211, 238, 0.12);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(34, 211, 238, 0.4);
+  }
+}
+.qr-glow-pulse {
+  animation: qrGlowPulse 3s ease-in-out infinite;
+}
+
+/* Línea de escaneo: barre de arriba a abajo y se desvanece antes de repetir.
+   El degradado (transparente arriba → cian abajo) deja un rastro de glow. */
+@keyframes qrScanLine {
+  0% {
+    top: -45%;
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  50% {
+    top: 100%;
+    opacity: 1;
+  }
+  62% {
+    top: 100%;
+    opacity: 0;
+  }
+  100% {
+    top: 100%;
+    opacity: 0;
+  }
+}
+.qr-scan-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -45%;
+  height: 45%;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(34, 211, 238, 0.18) 60%,
+    rgba(34, 211, 238, 0.55) 100%
+  );
+  border-bottom: 1.5px solid #22d3ee;
+  box-shadow: 0 0 12px 2px rgba(34, 211, 238, 0.5);
+  animation: qrScanLine 3s ease-in-out infinite;
+}
+
+/* Respeta a quienes prefieren menos movimiento. */
+@media (prefers-reduced-motion: reduce) {
+  .qr-scan-line {
+    display: none;
+  }
+  .qr-glow-pulse {
+    animation: none;
+  }
+}
+
 /* Confeti que cae al confirmar el cobro. */
 @keyframes confettiFall {
   0% {

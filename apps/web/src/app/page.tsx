@@ -115,11 +115,9 @@ export default function LoginPage() {
       <div className="relative z-10 w-full max-w-[420px]">
         {/* Logo */}
         <div className="mb-6 text-center">
-          <div
-            className="mx-auto mb-3.5 flex h-14 w-14 items-center justify-center rounded-2xl border border-cipher/25 bg-gradient-to-br from-surface to-lift"
-            style={{ boxShadow: '0 0 20px rgba(34,211,238,.15)' }}
-          >
+          <div className="qr-glow-pulse relative mx-auto mb-3.5 flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border border-cipher/25 bg-gradient-to-br from-surface to-lift">
             <Icon name="qrcode" className="h-7 w-7 text-cipher" />
+            <span className="qr-scan-line" aria-hidden="true" />
           </div>
           <div className="font-heading text-2xl font-bold text-clean">
             pago<span className="text-cipher">firme</span>
