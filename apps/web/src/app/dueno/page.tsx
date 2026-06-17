@@ -9,7 +9,7 @@ import { SessionTimeout } from '@/components/SessionTimeout';
 import { RankingList } from '@/components/RankingList';
 import { Toggle } from '@/components/Toggle';
 import { BCB_MAX } from '@/lib/caja';
-import { OWNER_RANKING } from '@/lib/teamData';
+import { BUSINESS_UNITS, OWNER_RANKING, type BusinessUnit } from '@/lib/teamData';
 import { FRAUD_EVENT, getFraudAlerts, type FraudAlert } from '@/lib/security';
 import { getGlobalDailyQr, setGlobalDailyQr } from '@/lib/dailyQr';
 
@@ -35,17 +35,61 @@ interface Member {
 }
 
 const SUPERVISORES: Member[] = [
-  { ini: 'MG', name: 'Marco Gutiérrez', sub: 'Supervisor · Tienda Centro · 3 vendedores', badge: 'Supervisor', badgeKind: 'ok' },
-  { ini: 'RM', name: 'Rosa Mamani', sub: 'Supervisora · Tienda Sur · 2 vendedores', badge: 'Supervisor', badgeKind: 'ok' },
+  {
+    ini: 'MG',
+    name: 'Marco Gutiérrez',
+    sub: 'Supervisor · Tienda Centro · 3 vendedores',
+    badge: 'Supervisor',
+    badgeKind: 'ok',
+  },
+  {
+    ini: 'RM',
+    name: 'Rosa Mamani',
+    sub: 'Supervisora · Tienda Sur · 2 vendedores',
+    badge: 'Supervisor',
+    badgeKind: 'ok',
+  },
 ];
 const VEND_CENTRO: Member[] = [
-  { ini: 'CA', name: 'Carlos Arias', sub: 'Tienda Centro · Lím. Bs 2,000/ticket', badge: 'Vendedor', badgeKind: 'n' },
-  { ini: 'JR', name: 'Juan Rojas', sub: 'Tienda Centro · Lím. Bs 2,000/ticket', badge: 'Vendedor', badgeKind: 'n' },
-  { ini: 'LM', name: 'Luis Mamani', sub: '⚠ Venta inusual hoy · Tienda Centro', badge: 'Vendedor', badgeKind: 'n', warn: true },
+  {
+    ini: 'CA',
+    name: 'Carlos Arias',
+    sub: 'Tienda Centro · Lím. Bs 2,000/ticket',
+    badge: 'Vendedor',
+    badgeKind: 'n',
+  },
+  {
+    ini: 'JR',
+    name: 'Juan Rojas',
+    sub: 'Tienda Centro · Lím. Bs 2,000/ticket',
+    badge: 'Vendedor',
+    badgeKind: 'n',
+  },
+  {
+    ini: 'LM',
+    name: 'Luis Mamani',
+    sub: '⚠ Venta inusual hoy · Tienda Centro',
+    badge: 'Vendedor',
+    badgeKind: 'n',
+    warn: true,
+  },
 ];
 const VEND_SUR: Member[] = [
-  { ini: 'ML', name: 'María López', sub: 'Tienda Sur · Lím. Bs 1,500/ticket', badge: 'Vendedor', badgeKind: 'n' },
-  { ini: 'AP', name: 'Ana Pereira', sub: 'Tienda Sur · inactiva', badge: 'Inactiva', badgeKind: 'e', inactive: true },
+  {
+    ini: 'ML',
+    name: 'María López',
+    sub: 'Tienda Sur · Lím. Bs 1,500/ticket',
+    badge: 'Vendedor',
+    badgeKind: 'n',
+  },
+  {
+    ini: 'AP',
+    name: 'Ana Pereira',
+    sub: 'Tienda Sur · inactiva',
+    badge: 'Inactiva',
+    badgeKind: 'e',
+    inactive: true,
+  },
 ];
 
 const badgeClass: Record<Member['badgeKind'], string> = {
@@ -90,9 +134,33 @@ const INSIGHTS: { icon: IconName; title: string; desc: React.ReactNode }[] = [
 ];
 
 const LINKS = [
-  { name: 'Curso Marketing Digital', price: 'Bs 150.00', visitas: 284, pagos: 127, conv: '44%', url: 'pagofirme.bo/p/curso-marketing-digital', faded: false },
-  { name: 'Curso Excel Avanzado', price: 'Bs 200.00', visitas: 156, pagos: 89, conv: '57%', url: 'pagofirme.bo/p/excel-avanzado', faded: false },
-  { name: 'Pack Cursos Completo', price: 'Bs 350.00', visitas: 43, pagos: 12, conv: '28%', url: 'pagofirme.bo/p/pack-completo', faded: true },
+  {
+    name: 'Curso Marketing Digital',
+    price: 'Bs 150.00',
+    visitas: 284,
+    pagos: 127,
+    conv: '44%',
+    url: 'pagofirme.bo/p/curso-marketing-digital',
+    faded: false,
+  },
+  {
+    name: 'Curso Excel Avanzado',
+    price: 'Bs 200.00',
+    visitas: 156,
+    pagos: 89,
+    conv: '57%',
+    url: 'pagofirme.bo/p/excel-avanzado',
+    faded: false,
+  },
+  {
+    name: 'Pack Cursos Completo',
+    price: 'Bs 350.00',
+    visitas: 43,
+    pagos: 12,
+    conv: '28%',
+    url: 'pagofirme.bo/p/pack-completo',
+    faded: true,
+  },
 ];
 
 export default function DuenoDashboard() {
@@ -104,6 +172,14 @@ export default function DuenoDashboard() {
   const [dailyGlobal, setDailyGlobal] = useState(true);
   // NIVEL 2 — Límite por ticket configurable por el dueño. Siempre <= BCB_MAX.
   const [ticketLimit, setTicketLimit] = useState('2000');
+  // Unidad de negocio abierta en el detalle (null = hub consolidado).
+  const [selectedUnit, setSelectedUnit] = useState<BusinessUnit | null>(null);
+
+  // Consolidado del día sobre todas las unidades de negocio.
+  const unitsTotal = BUSINESS_UNITS.reduce((s, u) => s + u.todayTotal, 0);
+  const unitsTx = BUSINESS_UNITS.reduce((s, u) => s + u.todayTx, 0);
+  const unitsActive = BUSINESS_UNITS.filter((u) => u.active).length;
+  const maxUnitTotal = Math.max(...BUSINESS_UNITS.map((u) => u.todayTotal), 1);
 
   function onTicketLimitChange(value: string) {
     const digits = value.replace(/\D/g, '');
@@ -196,148 +272,253 @@ export default function DuenoDashboard() {
             </header>
 
             <div className="min-h-0 flex-1 overflow-y-auto">
-              <div className="grid grid-cols-2 gap-1.5 p-4 pb-2">
-                <div className="rounded-[14px] border border-cipher/25 bg-cipher/[0.05] px-3.5 py-2.5">
-                  <div className="text-[10px] text-fog">Total hoy</div>
-                  <div className="font-heading text-[17px] font-semibold text-clean">Bs 6,480</div>
-                  <svg viewBox="0 0 80 18" preserveAspectRatio="none" className="mt-1 h-[18px] w-full">
-                    <polyline
-                      points="0,14 13,10 26,12 39,7 52,9 65,4 80,2"
-                      fill="none"
-                      stroke="#22D3EE"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      opacity=".5"
-                    />
-                    <circle cx="80" cy="2" r="2" fill="#22D3EE" opacity=".8" />
-                  </svg>
-                </div>
-                <div className="rounded-[14px] border border-wire bg-surface px-3.5 py-2.5">
-                  <div className="text-[10px] text-fog">Tickets hoy</div>
-                  <div className="font-heading text-[17px] font-semibold text-clean">54</div>
-                  <div className="text-[10px] text-fog">2 tiendas</div>
-                </div>
-                <div className="rounded-[14px] border border-wire bg-surface px-3.5 py-2.5">
-                  <div className="text-[10px] text-fog">Semana</div>
-                  <div className="font-heading text-[15px] font-semibold text-clean">Bs 31,200</div>
-                  <div className="text-[10px] text-fog">Lun–Jue</div>
-                </div>
-                <div className="rounded-[14px] border border-wire bg-surface px-3.5 py-2.5">
-                  <div className="text-[10px] text-fog">Comisiones</div>
-                  <div className="font-heading text-[17px] font-semibold text-cipher">Bs 0</div>
-                  <div className="text-[10px] text-pay">siempre</div>
-                </div>
-              </div>
+              {!selectedUnit ? (
+                <>
+                  {/* Consolidado del día — todas las unidades de negocio */}
+                  <div className="grid grid-cols-2 gap-1.5 p-4 pb-2">
+                    <div className="rounded-[14px] border border-cipher/25 bg-cipher/[0.05] px-3.5 py-2.5">
+                      <div className="text-[10px] text-fog">Total cobrado hoy</div>
+                      <div className="font-heading text-[17px] font-semibold text-clean">
+                        Bs {unitsTotal.toLocaleString('es-BO')}
+                      </div>
+                      <div className="text-[10px] text-fog">
+                        {BUSINESS_UNITS.length} unidades de negocio
+                      </div>
+                    </div>
+                    <div className="rounded-[14px] border border-wire bg-surface px-3.5 py-2.5">
+                      <div className="text-[10px] text-fog">Transacciones hoy</div>
+                      <div className="font-heading text-[17px] font-semibold text-clean">
+                        {unitsTx}
+                      </div>
+                      <div className="text-[10px] text-pay">{unitsActive} activas</div>
+                    </div>
+                  </div>
 
-              <div className="px-4 pb-1 pt-1">
-                <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-ghost">
-                  <Icon name="bell" className="h-3.5 w-3.5" />
-                  Alertas del negocio
-                </div>
-                <div className="overflow-hidden rounded-[14px] border border-wire bg-surface">
-                  {fraudAlerts.map((a) => (
-                    <div key={a.id} className="flex items-start gap-2.5 border-b border-wire px-3.5 py-2.5">
-                      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-loss/[0.08] text-loss">
-                        <Icon name="alert-triangle" className="h-3.5 w-3.5" />
+                  {/* Comparación entre unidades */}
+                  <div className="px-4 pb-1 pt-1">
+                    <div className="mb-1.5 text-[11px] font-medium text-ghost">
+                      Comparación de unidades
+                    </div>
+                    <div className="space-y-2 rounded-[14px] border border-wire bg-surface px-3.5 py-3">
+                      {BUSINESS_UNITS.map((u) => (
+                        <div key={u.id}>
+                          <div className="mb-0.5 flex justify-between text-[11px]">
+                            <span className="text-ghost">{u.name}</span>
+                            <span className="font-medium text-cipher">
+                              Bs {u.todayTotal.toLocaleString('es-BO')}
+                            </span>
+                          </div>
+                          <div className="h-1.5 overflow-hidden rounded-full bg-lift">
+                            <div
+                              className="h-full rounded-full bg-cipher"
+                              style={{
+                                width: `${Math.round((u.todayTotal / maxUnitTotal) * 100)}%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="px-4 pb-1 pt-1">
+                    <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-medium text-ghost">
+                      <Icon name="bell" className="h-3.5 w-3.5" />
+                      Alertas de todas las unidades
+                    </div>
+                    <div className="overflow-hidden rounded-[14px] border border-wire bg-surface">
+                      {fraudAlerts.map((a) => (
+                        <div
+                          key={a.id}
+                          className="flex items-start gap-2.5 border-b border-wire px-3.5 py-2.5"
+                        >
+                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-loss/[0.08] text-loss">
+                            <Icon name="alert-triangle" className="h-3.5 w-3.5" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="text-xs font-medium text-clean">{a.title}</div>
+                            <div className="text-[10px] leading-snug text-ghost">{a.desc}</div>
+                          </div>
+                          <div className="text-[9px] text-fog">{a.time}</div>
+                        </div>
+                      ))}
+                      <div className="flex items-start gap-2.5 border-b border-wire px-3.5 py-2.5">
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-risk/[0.08] text-risk">
+                          <Icon name="trending-up" className="h-3.5 w-3.5" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-xs font-medium text-clean">
+                            Venta inusual · Tienda Centro
+                          </div>
+                          <div className="text-[10px] leading-snug text-ghost">
+                            Luis Mamani · Bs 1,800 (prom. Bs 280) · Marco notificado
+                          </div>
+                        </div>
+                        <div className="text-[9px] text-fog">09:12</div>
                       </div>
+                      <div className="flex items-start gap-2.5 px-3.5 py-2.5">
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-cipher/[0.08] text-cipher">
+                          <Icon name="cash" className="h-3.5 w-3.5" />
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-xs font-medium text-clean">
+                            Pago recibido · Bs 300
+                          </div>
+                          <div className="text-[10px] leading-snug text-ghost">
+                            Carlos Arias · Tienda Centro · #T-0041
+                          </div>
+                        </div>
+                        <div className="text-[9px] text-fog">09:05</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Tarjetas por unidad de negocio */}
+                  <div className="px-4 pb-1 pt-2 text-[11px] font-medium text-ghost">
+                    Unidades de negocio
+                  </div>
+                  <div className="px-4 pb-4">
+                    {BUSINESS_UNITS.map((u) => (
+                      <button
+                        key={u.id}
+                        type="button"
+                        onClick={() => setSelectedUnit(u)}
+                        className={`mb-2 flex w-full flex-col rounded-[14px] border px-4 py-3 text-left transition-colors active:bg-lift ${
+                          u.active
+                            ? 'border-cipher/25 bg-cipher/[0.04]'
+                            : 'border-wire bg-surface opacity-70'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-heading text-[13px] font-semibold text-clean">
+                            {u.name}
+                          </span>
+                          <span
+                            className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] ${
+                              u.active ? 'bg-pay/10 text-pay' : 'bg-loss/10 text-loss'
+                            }`}
+                          >
+                            <span
+                              className={`h-1.5 w-1.5 rounded-full ${u.active ? 'bg-pay' : 'bg-loss'}`}
+                            />
+                            {u.active ? 'Activa' : 'Inactiva'}
+                          </span>
+                        </div>
+                        <div className="mt-2 flex items-end justify-between">
+                          <div>
+                            <div className="text-[10px] text-fog">Cobrado hoy</div>
+                            <div className="font-heading text-[17px] font-semibold text-cipher">
+                              Bs {u.todayTotal.toLocaleString('es-BO')}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-[10px] text-fog">Transacciones</div>
+                            <div className="font-heading text-[15px] font-semibold text-clean">
+                              {u.todayTx}
+                            </div>
+                          </div>
+                          <Icon name="chevron-right" className="h-4 w-4 self-center text-fog" />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                /* ── DETALLE DE UNIDAD ── */
+                <div>
+                  <div className="flex items-center gap-2.5 border-b border-wire px-4 py-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedUnit(null)}
+                      aria-label="Volver a unidades"
+                      className="text-ghost transition-colors active:text-cipher"
+                    >
+                      <Icon name="arrow-left" className="h-5 w-5" />
+                    </button>
+                    <span className="font-heading text-[15px] font-semibold text-clean">
+                      {selectedUnit.name}
+                    </span>
+                    <span
+                      className={`ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] ${
+                        selectedUnit.active ? 'bg-pay/10 text-pay' : 'bg-loss/10 text-loss'
+                      }`}
+                    >
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${selectedUnit.active ? 'bg-pay' : 'bg-loss'}`}
+                      />
+                      {selectedUnit.active ? 'Activa' : 'Inactiva'}
+                    </span>
+                  </div>
+
+                  {/* Métricas del día */}
+                  <div className="grid grid-cols-2 gap-1.5 p-4 pb-2">
+                    <div className="rounded-[14px] border border-cipher/25 bg-cipher/[0.05] px-3.5 py-2.5">
+                      <div className="text-[10px] text-fog">Cobrado hoy</div>
+                      <div className="font-heading text-[17px] font-semibold text-clean">
+                        Bs {selectedUnit.todayTotal.toLocaleString('es-BO')}
+                      </div>
+                    </div>
+                    <div className="rounded-[14px] border border-wire bg-surface px-3.5 py-2.5">
+                      <div className="text-[10px] text-fog">Transacciones</div>
+                      <div className="font-heading text-[17px] font-semibold text-clean">
+                        {selectedUnit.todayTx}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Límite configurado */}
+                  <div className="px-4 pb-2">
+                    <div className="flex items-center gap-3 rounded-[14px] border border-wire bg-surface px-3.5 py-2.5">
+                      <Icon name="coin" className="h-5 w-5 shrink-0 text-ghost" />
                       <div className="flex-1">
-                        <div className="text-xs font-medium text-clean">{a.title}</div>
-                        <div className="text-[10px] leading-snug text-ghost">{a.desc}</div>
+                        <div className="text-[13px] text-clean">Límite por ticket</div>
+                        <div className="text-[10px] text-fog">
+                          {selectedUnit.limit >= BCB_MAX
+                            ? 'Solo tope BCB (NIVEL 1)'
+                            : 'Límite del dueño (NIVEL 2)'}
+                        </div>
                       </div>
-                      <div className="text-[9px] text-fog">{a.time}</div>
+                      <span className="font-heading text-[13px] font-semibold text-cipher">
+                        Bs {selectedUnit.limit.toLocaleString('es-BO')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Supervisores y sus vendedores */}
+                  {selectedUnit.supervisors.map((s) => (
+                    <div key={s.id}>
+                      <div className="flex items-center gap-2.5 bg-void px-4 py-2">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full border border-wire bg-surface font-heading text-[10px] font-semibold text-cipher">
+                          {s.av}
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-[12px] font-medium text-clean">{s.name}</div>
+                          <div className="text-[10px] text-fog">{s.role}</div>
+                        </div>
+                        <span className="text-[10px] text-fog">{s.vcount}</span>
+                      </div>
+                      {s.vends.map((v) => (
+                        <div
+                          key={`${s.id}-${v.ini}`}
+                          className="flex items-center gap-2.5 border-b border-wire px-5 py-2.5"
+                        >
+                          <div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full border border-wire bg-surface font-heading text-[10px] font-semibold text-ghost">
+                            {v.ini}
+                          </div>
+                          <div className="flex-1">
+                            <div className="text-[12px] text-clean">{v.name}</div>
+                            <div className="text-[10px] text-fog">{v.tix} tickets</div>
+                          </div>
+                          <span className="font-heading text-[12px] font-semibold text-cipher">
+                            {v.monto}
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   ))}
-                  <div className="flex items-start gap-2.5 border-b border-wire px-3.5 py-2.5">
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-risk/[0.08] text-risk">
-                      <Icon name="trending-up" className="h-3.5 w-3.5" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="text-xs font-medium text-clean">Venta inusual · Tienda Centro</div>
-                      <div className="text-[10px] leading-snug text-ghost">
-                        Luis Mamani · Bs 1,800 (prom. Bs 280) · Marco notificado
-                      </div>
-                    </div>
-                    <div className="text-[9px] text-fog">09:12</div>
-                  </div>
-                  <div className="flex items-start gap-2.5 px-3.5 py-2.5">
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-cipher/[0.08] text-cipher">
-                      <Icon name="cash" className="h-3.5 w-3.5" />
-                    </div>
-                    <div className="flex-1">
-                      <div className="text-xs font-medium text-clean">Pago recibido · Bs 300</div>
-                      <div className="text-[10px] leading-snug text-ghost">
-                        Carlos Arias · Tienda Centro · #T-0041
-                      </div>
-                    </div>
-                    <div className="text-[9px] text-fog">09:05</div>
-                  </div>
+                  <div className="h-4" />
                 </div>
-              </div>
-
-              <div className="px-4 pb-1 pt-2 text-[11px] font-medium text-ghost">Mis tiendas hoy</div>
-              <div className="px-4 pb-4">
-                {/* Tienda Centro */}
-                <div className="mb-2 rounded-[14px] border border-cipher/25 bg-cipher/[0.04] px-4 py-3">
-                  <div className="flex items-center justify-between">
-                    <span className="font-heading text-[13px] font-semibold text-clean">Tienda Centro</span>
-                    <span className="rounded-full bg-pay/10 px-2 py-0.5 text-[10px] text-pay">Activa</span>
-                  </div>
-                  <div className="mb-2 text-[10px] text-fog">Av. Montes 123, La Paz</div>
-                  <div className="flex justify-between text-[11px]">
-                    <span className="text-fog">Ventas hoy</span>
-                    <span className="font-medium text-cipher">Bs 4,280</span>
-                  </div>
-                  <div className="flex justify-between text-[11px]">
-                    <span className="text-fog">Tickets</span>
-                    <span className="font-medium text-clean">34</span>
-                  </div>
-                  <div className="flex justify-between text-[11px]">
-                    <span className="text-fog">Vendedores activos</span>
-                    <span className="font-medium text-clean">3</span>
-                  </div>
-                  <div className="mt-2 flex items-center gap-2 border-t border-wire pt-2">
-                    <div className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-cipher/[0.08] font-heading text-[8px] font-semibold text-cipher">
-                      MG
-                    </div>
-                    <div className="flex-1">
-                      <div className="text-[11px] font-medium text-clean">Marco Gutiérrez</div>
-                      <div className="text-[9px] text-fog">Supervisor de tienda</div>
-                    </div>
-                    <div className="font-heading text-[11px] font-semibold text-cipher">Bs 4,280</div>
-                  </div>
-                </div>
-                {/* Tienda Sur */}
-                <div className="rounded-[14px] border border-wire bg-surface px-4 py-3">
-                  <div className="flex items-center justify-between">
-                    <span className="font-heading text-[13px] font-semibold text-clean">Tienda Sur</span>
-                    <span className="rounded-full bg-pay/10 px-2 py-0.5 text-[10px] text-pay">Activa</span>
-                  </div>
-                  <div className="mb-2 text-[10px] text-fog">Calle 21 de Sep. 45, El Alto</div>
-                  <div className="flex justify-between text-[11px]">
-                    <span className="text-fog">Ventas hoy</span>
-                    <span className="font-medium text-cipher">Bs 2,200</span>
-                  </div>
-                  <div className="flex justify-between text-[11px]">
-                    <span className="text-fog">Tickets</span>
-                    <span className="font-medium text-clean">20</span>
-                  </div>
-                  <div className="flex justify-between text-[11px]">
-                    <span className="text-fog">Vendedores activos</span>
-                    <span className="font-medium text-clean">2</span>
-                  </div>
-                  <div className="mt-2 flex items-center gap-2 border-t border-wire pt-2">
-                    <div className="flex h-[22px] w-[22px] items-center justify-center rounded-full bg-cipher/[0.08] font-heading text-[8px] font-semibold text-cipher">
-                      RM
-                    </div>
-                    <div className="flex-1">
-                      <div className="text-[11px] font-medium text-clean">Rosa Mamani</div>
-                      <div className="text-[9px] text-fog">Supervisora de tienda</div>
-                    </div>
-                    <div className="font-heading text-[11px] font-semibold text-cipher">Bs 2,200</div>
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         )}
@@ -391,9 +572,15 @@ export default function DuenoDashboard() {
             </header>
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
               <div className="mb-2.5 flex gap-1">
-                <span className="rounded-full bg-cipher px-3 py-1 text-[11px] font-semibold text-[#0A0C15]">Semana</span>
-                <span className="rounded-full border border-wire bg-surface px-3 py-1 text-[11px] text-ghost">Mes</span>
-                <span className="rounded-full border border-wire bg-surface px-3 py-1 text-[11px] text-ghost">Rango</span>
+                <span className="rounded-full bg-cipher px-3 py-1 text-[11px] font-semibold text-[#0A0C15]">
+                  Semana
+                </span>
+                <span className="rounded-full border border-wire bg-surface px-3 py-1 text-[11px] text-ghost">
+                  Mes
+                </span>
+                <span className="rounded-full border border-wire bg-surface px-3 py-1 text-[11px] text-ghost">
+                  Rango
+                </span>
               </div>
               <div className="mb-2.5 rounded-[14px] border border-wire bg-surface px-3.5 py-3">
                 <div className="mb-1 flex items-center justify-between">
@@ -426,7 +613,10 @@ export default function DuenoDashboard() {
                 Inteligencia de tu negocio
               </div>
               {INSIGHTS.map((it) => (
-                <div key={it.title} className="mb-2 rounded-[14px] border border-wire bg-surface px-3.5 py-3">
+                <div
+                  key={it.title}
+                  className="mb-2 rounded-[14px] border border-wire bg-surface px-3.5 py-3"
+                >
                   <div className="mb-1.5 flex items-center gap-2">
                     <div className="flex h-[26px] w-[26px] items-center justify-center rounded-lg bg-cipher/[0.08] text-cipher">
                       <Icon name={it.icon} className="h-3.5 w-3.5" />
@@ -467,12 +657,24 @@ export default function DuenoDashboard() {
             </header>
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
               <div className="mb-2 overflow-hidden rounded-[14px] border border-wire bg-surface">
-                <ConfigRow icon="building" title="Mi negocio" sub="Cursos Digitales Bolivia · NIT 1234567890" arrow />
-                <ConfigRow icon="credit-card" title="Cuenta bancaria BCB" sub="Banco Mercantil ···4521" arrow />
+                <ConfigRow
+                  icon="building"
+                  title="Mi negocio"
+                  sub="Cursos Digitales Bolivia · NIT 1234567890"
+                  arrow
+                />
+                <ConfigRow
+                  icon="credit-card"
+                  title="Cuenta bancaria BCB"
+                  sub="Banco Mercantil ···4521"
+                  arrow
+                />
                 <ConfigRow icon="store" title="Mis tiendas" sub="2 tiendas activas" arrow last />
               </div>
 
-              <div className="mb-1.5 px-1 text-[11px] font-medium text-ghost">Control de vendedores</div>
+              <div className="mb-1.5 px-1 text-[11px] font-medium text-ghost">
+                Control de vendedores
+              </div>
               <div className="mb-2 overflow-hidden rounded-[14px] border border-wire bg-surface">
                 <ConfigRow
                   icon="coin"
@@ -491,11 +693,24 @@ export default function DuenoDashboard() {
                     />
                   </div>
                 </ConfigRow>
-                <ConfigRow icon="clock" title="Horario de operación" sub="Centro: 8am–6pm · Sur: 9am–7pm" arrow />
-                <ConfigRow icon="alert-triangle" title="Alertas ventas inusuales" sub="Cuando supere 3× el promedio del vendedor">
+                <ConfigRow
+                  icon="clock"
+                  title="Horario de operación"
+                  sub="Centro: 8am–6pm · Sur: 9am–7pm"
+                  arrow
+                />
+                <ConfigRow
+                  icon="alert-triangle"
+                  title="Alertas ventas inusuales"
+                  sub="Cuando supere 3× el promedio del vendedor"
+                >
                   <Toggle defaultOn />
                 </ConfigRow>
-                <ConfigRow icon="device-mobile" title="Sesión única por vendedor" sub="Cierra sesión anterior si abre nueva">
+                <ConfigRow
+                  icon="device-mobile"
+                  title="Sesión única por vendedor"
+                  sub="Cierra sesión anterior si abre nueva"
+                >
                   <Toggle defaultOn />
                 </ConfigRow>
                 <ConfigRow
@@ -520,8 +735,18 @@ export default function DuenoDashboard() {
                     Activo
                   </span>
                 </ConfigRow>
-                <ConfigRow icon="shield" title="Autenticación 2FA" sub="Google Authenticator · Activo" arrow />
-                <ConfigRow icon="bell" title="Notificaciones push" sub="Cada pago recibido en tiempo real" last>
+                <ConfigRow
+                  icon="shield"
+                  title="Autenticación 2FA"
+                  sub="Google Authenticator · Activo"
+                  arrow
+                />
+                <ConfigRow
+                  icon="bell"
+                  title="Notificaciones push"
+                  sub="Cada pago recibido en tiempo real"
+                  last
+                >
                   <Toggle defaultOn />
                 </ConfigRow>
               </div>
@@ -545,13 +770,64 @@ export default function DuenoDashboard() {
               Herramientas
             </header>
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
-              <div className="mb-2.5 text-[11px] text-fog">Todo lo que PagoFirme hace por tu negocio</div>
-              <ToolCard icon="file-invoice" iconBg="#0a1a2e" iconColor="text-cipher" title="Reporte para el contador" sub="PDF mensual listo · ingresos · IVA · detalle" onClick={() => setMasView('contador')} />
-              <ToolCard icon="receipt" iconBg="#2e0a0f" iconColor="text-loss" title="Facturación electrónica" sub="Facturas SIN Bolivia · emisión automática" tag="Próx." tagClass="bg-[#2e2400] text-risk" onClick={() => show('Facturación electrónica · próximamente', 'ok')} />
-              <ToolCard icon="link" iconBg="#0a2e1a" iconColor="text-pay" title="Links de pago" sub="Un link por producto · comparte en WhatsApp" onClick={() => setMasView('links')} />
-              <ToolCard icon="brain" iconBg="#1a0a2e" iconColor="text-[#a78bfa]" title="Alertas inteligentes" sub="IA analiza tu negocio y te avisa lo importante" tag="3 nuevas" tagClass="bg-[#0a1a2e] text-cipher" onClick={() => show('3 alertas inteligentes nuevas', 'ok')} />
-              <ToolCard icon="trophy" iconBg="#2e2400" iconColor="text-risk" title="Ranking del mercado" sub="Cómo estás vs negocios similares en Bolivia" onClick={() => show('Abriendo ranking del mercado', 'ok')} />
-              <ToolCard icon="cash" iconBg="#0a2e1a" iconColor="text-pay" title="Crédito para tu negocio" sub="Hasta Bs 15,000 · basado en tus ventas" tag="Nuevo" tagClass="border border-[#16a34a] bg-[#0a2e1a] text-pay" green onClick={() => show('Solicitud de crédito iniciada', 'ok')} />
+              <div className="mb-2.5 text-[11px] text-fog">
+                Todo lo que PagoFirme hace por tu negocio
+              </div>
+              <ToolCard
+                icon="file-invoice"
+                iconBg="#0a1a2e"
+                iconColor="text-cipher"
+                title="Reporte para el contador"
+                sub="PDF mensual listo · ingresos · IVA · detalle"
+                onClick={() => setMasView('contador')}
+              />
+              <ToolCard
+                icon="receipt"
+                iconBg="#2e0a0f"
+                iconColor="text-loss"
+                title="Facturación electrónica"
+                sub="Facturas SIN Bolivia · emisión automática"
+                tag="Próx."
+                tagClass="bg-[#2e2400] text-risk"
+                onClick={() => show('Facturación electrónica · próximamente', 'ok')}
+              />
+              <ToolCard
+                icon="link"
+                iconBg="#0a2e1a"
+                iconColor="text-pay"
+                title="Links de pago"
+                sub="Un link por producto · comparte en WhatsApp"
+                onClick={() => setMasView('links')}
+              />
+              <ToolCard
+                icon="brain"
+                iconBg="#1a0a2e"
+                iconColor="text-[#a78bfa]"
+                title="Alertas inteligentes"
+                sub="IA analiza tu negocio y te avisa lo importante"
+                tag="3 nuevas"
+                tagClass="bg-[#0a1a2e] text-cipher"
+                onClick={() => show('3 alertas inteligentes nuevas', 'ok')}
+              />
+              <ToolCard
+                icon="trophy"
+                iconBg="#2e2400"
+                iconColor="text-risk"
+                title="Ranking del mercado"
+                sub="Cómo estás vs negocios similares en Bolivia"
+                onClick={() => show('Abriendo ranking del mercado', 'ok')}
+              />
+              <ToolCard
+                icon="cash"
+                iconBg="#0a2e1a"
+                iconColor="text-pay"
+                title="Crédito para tu negocio"
+                sub="Hasta Bs 15,000 · basado en tus ventas"
+                tag="Nuevo"
+                tagClass="border border-[#16a34a] bg-[#0a2e1a] text-pay"
+                green
+                onClick={() => show('Solicitud de crédito iniciada', 'ok')}
+              />
             </div>
           </div>
         )}
@@ -574,7 +850,9 @@ export default function DuenoDashboard() {
                 </div>
               </div>
 
-              <div className="mb-1.5 text-[11px] font-medium text-ghost">Junio 2025 — resumen fiscal</div>
+              <div className="mb-1.5 text-[11px] font-medium text-ghost">
+                Junio 2025 — resumen fiscal
+              </div>
               <div className="mb-2.5 rounded-[14px] border border-wire bg-surface p-3.5">
                 {[
                   ['Ingresos brutos', 'Bs 31,200.00', false],
@@ -585,7 +863,10 @@ export default function DuenoDashboard() {
                   ['Tienda Sur', 'Bs 11,800.00', false],
                   ['Comisiones pagadas', 'Bs 0.00', true],
                 ].map(([l, v, green]) => (
-                  <div key={l as string} className="flex justify-between border-b border-wire py-1.5 text-[11px] last:border-b-0">
+                  <div
+                    key={l as string}
+                    className="flex justify-between border-b border-wire py-1.5 text-[11px] last:border-b-0"
+                  >
                     <span className="text-fog">{l}</span>
                     <span className={`font-medium ${green ? 'text-pay' : 'text-clean'}`}>{v}</span>
                   </div>
@@ -670,7 +951,9 @@ export default function DuenoDashboard() {
                   className={`mb-2 rounded-[14px] border border-wire bg-surface px-4 py-3 ${lk.faded ? 'opacity-60' : ''}`}
                 >
                   <div className="text-[13px] font-medium text-clean">{lk.name}</div>
-                  <div className="mb-1.5 font-heading text-xl font-bold text-cipher">{lk.price}</div>
+                  <div className="mb-1.5 font-heading text-xl font-bold text-cipher">
+                    {lk.price}
+                  </div>
                   <div className="mb-2 flex gap-3 text-[10px] text-fog">
                     <span className="flex items-center gap-1">
                       <Icon name="eye" className="h-3 w-3" />
@@ -796,7 +1079,9 @@ function ToolCard({
         <div className={`mt-0.5 text-[10px] ${green ? 'text-pay' : 'text-fog'}`}>{sub}</div>
       </div>
       {tag ? (
-        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] ${tagClass ?? ''}`}>{tag}</span>
+        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] ${tagClass ?? ''}`}>
+          {tag}
+        </span>
       ) : (
         <Icon name="chevron-right" className="h-4 w-4 shrink-0 text-fog" />
       )}

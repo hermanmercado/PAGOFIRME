@@ -16,7 +16,7 @@ export interface RankRow {
 }
 
 export interface SupData {
-  id: 'sup1' | 'sup2';
+  id: 'sup1' | 'sup2' | 'sup3';
   av: string;
   name: string;
   role: string;
@@ -80,6 +80,69 @@ export const SUP_SUR: SupData = {
     { n: 'Ana Pereira', v: 'Bs 5,700', p: 93 },
   ],
 };
+
+/** Supervisor de la unidad "Negocio Demo" (inactiva en la demo). */
+export const SUP_DEMO: SupData = {
+  id: 'sup3',
+  av: 'PV',
+  name: 'Pedro Vargas',
+  role: 'Supervisor · Restaurante',
+  tienda: 'Restaurante Central',
+  tiendaShort: 'Restaurante',
+  ventas: 'Bs 0',
+  tix: '0',
+  vcount: '2 vendedores',
+  repTotal: 'Bs 0',
+  ticketStart: 1,
+  limit: BCB_MAX, // solo tope BCB (NIVEL 1)
+  vends: [
+    { ini: 'SC', name: 'Sofía Choque', tix: 0, monto: 'Bs 0' },
+    { ini: 'DT', name: 'Diego Torres', tix: 0, monto: 'Bs 0' },
+  ],
+  ranking: [
+    { n: 'Sofía Choque', v: 'Bs 0', p: 0 },
+    { n: 'Diego Torres', v: 'Bs 0', p: 0 },
+  ],
+};
+
+/**
+ * Unidad de negocio del dueño. Un dueño puede tener varias (academia,
+ * restaurante, tienda…); cada una agrupa sus supervisores y vendedores y tiene
+ * su propio límite (NIVEL 2, siempre <= BCB_MAX).
+ */
+export interface BusinessUnit {
+  id: string;
+  name: string;
+  active: boolean;
+  /** Límite por ticket de la unidad (NIVEL 2). */
+  limit: number;
+  /** Total cobrado hoy (Bs). */
+  todayTotal: number;
+  /** Transacciones de hoy. */
+  todayTx: number;
+  supervisors: SupData[];
+}
+
+export const BUSINESS_UNITS: BusinessUnit[] = [
+  {
+    id: 'cobana',
+    name: 'CobanaAcademy',
+    active: true,
+    limit: 2000,
+    todayTotal: 6480, // Centro 4.280 + Sur 2.200
+    todayTx: 54, // 34 + 20
+    supervisors: [SUP_CENTRO, SUP_SUR],
+  },
+  {
+    id: 'negocio-demo',
+    name: 'Negocio Demo',
+    active: false,
+    limit: BCB_MAX,
+    todayTotal: 0,
+    todayTx: 0,
+    supervisors: [SUP_DEMO],
+  },
+];
 
 export const OWNER_RANKING: RankRow[] = [
   { n: 'Carlos Arias (Centro)', v: 'Bs 7,200', p: 100 },
