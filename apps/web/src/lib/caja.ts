@@ -10,6 +10,8 @@ export interface Ticket {
   hora: string;
   total: number;
   lineas: Linea[];
+  /** Epoch ms del cobro; habilita el filtro por fecha del historial. */
+  ts: number;
 }
 
 export const ticketId = (n: number) => `#T-0${String(n).padStart(3, '0')}`;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Icon } from '@/components/icons';
 import { BottomNav, type NavItem } from '@/components/BottomNav';
@@ -10,6 +10,7 @@ import { Toggle } from '@/components/Toggle';
 import { QrMatrix } from '@/components/QrMatrix';
 import { CajaScreen } from '@/components/caja/CajaScreen';
 import { bs, loadTickets, saveTickets, type Ticket } from '@/lib/caja';
+import { VENDOR_PAY_CODE } from '@/lib/payLink';
 import {
   dailyQrCode,
   dailyQrEnabled,
@@ -21,9 +22,26 @@ import {
 } from '@/lib/dailyQr';
 
 type Tab = 'caja' | 'tickets' | 'resumen' | 'perfil';
+type DateFilter = 'hoy' | 'semana' | 'mes';
 
 const VENDOR = 'Carlos Arias';
 const TIENDA = 'Tienda Centro';
+
+const DATE_FILTERS: { id: DateFilter; label: string }[] = [
+  { id: 'hoy', label: 'Hoy' },
+  { id: 'semana', label: 'Semana' },
+  { id: 'mes', label: 'Mes' },
+];
+
+/** Epoch ms desde el que un ticket cuenta para el filtro de fecha elegido. */
+function filterFrom(filter: DateFilter): number {
+  const now = new Date();
+  if (filter === 'hoy') {
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  }
+  const days = filter === 'semana' ? 7 : 30;
+  return now.getTime() - days * 24 * 60 * 60 * 1000;
+}
 
 const NAV: NavItem<Tab>[] = [
   { id: 'caja', label: 'Caja', icon: 'store' },
@@ -40,6 +58,8 @@ export default function VendedorDashboard() {
   // así el QR del día YA está en el primer render: cero loading, cero flash.
   const [tickets, setTickets] = useState<Ticket[]>(() => loadTickets());
   const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
+  const [dateFilter, setDateFilter] = useState<DateFilter>('hoy');
   const [dailyCode, setDailyCode] = useState<string | null>(() =>
     dailyQrEnabled() ? dailyQrCode(VENDOR, TIENDA) : null,
   );
@@ -47,6 +67,24 @@ export default function VendedorDashboard() {
   const globalDaily = getGlobalDailyQr();
 
   const totalCobrado = tickets.reduce((s, t) => s + t.total, 0);
+
+  // Historial filtrado por fecha + búsqueda (por ID o monto).
+  const filteredTickets = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const from = filterFrom(dateFilter);
+    return tickets.filter((t) => {
+      const ts = t.ts ?? Date.now(); // tickets previos sin timestamp → cuentan como recientes
+      if (ts < from) return false;
+      if (!q) return true;
+      return (
+        t.id.toLowerCase().includes(q) ||
+        bs(t.total).toLowerCase().includes(q) ||
+        String(t.total).includes(q)
+      );
+    });
+  }, [tickets, query, dateFilter]);
+
+  const filteredTotal = filteredTickets.reduce((s, t) => s + t.total, 0);
 
   // Tickets persistentes (sobreviven cambios de pestaña y recargas).
   useEffect(() => {
@@ -76,6 +114,7 @@ export default function VendedorDashboard() {
           ticketStart={43}
           actor={VENDOR}
           avgTicket={280}
+          payCode={VENDOR_PAY_CODE}
           onCobrado={(t) => setTickets((ts) => [t, ...ts])}
           show={show}
           renderHeader={({ ticketId, hora }) => (
@@ -120,26 +159,77 @@ export default function VendedorDashboard() {
         {tab === 'tickets' && (
           <div className="flex min-h-0 flex-1 flex-col">
             <header className="shrink-0 border-b border-wire px-[18px] py-3 text-[15px] font-medium text-clean">
-              Mis tickets de hoy
+              Mis tickets
             </header>
+
+            {/* Controles del historial: búsqueda + filtro de fecha (fijos arriba). */}
+            <div className="shrink-0 border-b border-wire px-4 pb-3 pt-3">
+              <div className="relative mb-2">
+                <Icon
+                  name="search"
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fog"
+                />
+                <input
+                  type="search"
+                  inputMode="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Buscar por monto o ID…"
+                  className="w-full rounded-[10px] border border-wire bg-surface py-2 pl-9 pr-3 text-sm text-clean outline-none transition-colors placeholder:text-fog focus:border-cipher"
+                />
+              </div>
+              <div className="flex gap-1.5">
+                {DATE_FILTERS.map((f) => {
+                  const active = dateFilter === f.id;
+                  return (
+                    <button
+                      key={f.id}
+                      type="button"
+                      onClick={() => setDateFilter(f.id)}
+                      className={`flex flex-1 items-center justify-center gap-1 rounded-full border py-1.5 text-xs font-medium transition-colors ${
+                        active
+                          ? 'border-cipher/30 bg-cipher/[0.1] text-cipher'
+                          : 'border-wire bg-surface text-ghost active:border-cipher'
+                      }`}
+                    >
+                      <Icon name="calendar" className="h-3.5 w-3.5" />
+                      {f.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
-              <div className="mb-3 rounded-[14px] border border-wire bg-surface px-3.5 py-2.5">
-                <div className="flex justify-between text-[11px]">
-                  <span className="text-fog">Total cobrado hoy</span>
-                  <span className="font-medium text-cipher">Bs {bs(totalCobrado)}</span>
+              {/* Total filtrado: refleja la búsqueda + el rango de fecha activos. */}
+              <div className="mb-3 rounded-[14px] border border-cipher/20 bg-cipher/[0.05] px-3.5 py-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] text-fog">
+                    Total {query.trim() ? 'encontrado' : DATE_FILTERS.find((f) => f.id === dateFilter)?.label.toLowerCase()}
+                  </span>
+                  <span className="font-heading text-lg font-bold text-cipher">
+                    Bs {bs(filteredTotal)}
+                  </span>
                 </div>
                 <div className="mt-1 flex justify-between text-[11px]">
-                  <span className="text-fog">Tickets completados</span>
-                  <span className="font-medium text-clean">{tickets.length}</span>
+                  <span className="text-fog">Tickets</span>
+                  <span className="font-medium text-clean">
+                    {filteredTickets.length}
+                    {filteredTickets.length !== tickets.length && (
+                      <span className="text-fog"> de {tickets.length}</span>
+                    )}
+                  </span>
                 </div>
               </div>
-              {tickets.length === 0 ? (
+              {filteredTickets.length === 0 ? (
                 <div className="flex flex-col items-center gap-2 py-12 text-center text-xs text-fog">
-                  <Icon name="receipt" className="h-9 w-9" />
-                  Aún no cobraste tickets hoy
+                  <Icon name={tickets.length === 0 ? 'receipt' : 'search'} className="h-9 w-9" />
+                  {tickets.length === 0
+                    ? 'Aún no cobraste tickets'
+                    : 'Ningún ticket coincide con la búsqueda'}
                 </div>
               ) : (
-                tickets.map((t) => {
+                filteredTickets.map((t) => {
                   const open = expandedTicket === t.id;
                   return (
                     <div key={t.id} className="border-b border-wire">

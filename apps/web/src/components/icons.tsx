@@ -55,7 +55,9 @@ export type IconName =
   | 'id'
   | 'home'
   | 'shopping-cart'
-  | 'school';
+  | 'school'
+  | 'search'
+  | 'calendar';
 
 const paths: Record<IconName, React.ReactNode> = {
   qrcode: (
@@ -394,6 +396,22 @@ const paths: Record<IconName, React.ReactNode> = {
     <>
       <path d="M22 9l-10 -4l-10 4l10 4l10 -4v6" />
       <path d="M6 10.6v5.4a6 3 0 0 0 12 0v-5.4" />
+    </>
+  ),
+  search: (
+    <>
+      <path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" />
+      <path d="M21 21l-6 -6" />
+    </>
+  ),
+  calendar: (
+    <>
+      <path d="M4 7a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2z" />
+      <path d="M16 3v4" />
+      <path d="M8 3v4" />
+      <path d="M4 11h16" />
+      <path d="M11 15h1" />
+      <path d="M12 15v3" />
     </>
   ),
 };

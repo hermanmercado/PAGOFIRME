@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '@/components/icons';
 import { bs, evalExpr, ticketId, type Linea, type Ticket } from '@/lib/caja';
+import { whatsappShareUrl } from '@/lib/payLink';
 import { recordQr, reportUnusualSale } from '@/lib/security';
 
 const keyBase =
@@ -29,6 +30,8 @@ export interface CajaScreenProps {
   actor?: string;
   /** Ticket promedio del operador; un cobro > 3x dispara aviso de venta inusual. */
   avgTicket?: number;
+  /** Código de cobro del vendedor; habilita "Cobrar por WhatsApp" con el link público. */
+  payCode?: string;
 }
 
 export function CajaScreen({
@@ -41,6 +44,7 @@ export function CajaScreen({
   hidden = false,
   actor,
   avgTicket,
+  payCode,
 }: CajaScreenProps) {
   const [expr, setExpr] = useState('');
   const [lineas, setLineas] = useState<Linea[]>([]);
@@ -125,11 +129,22 @@ export function CajaScreen({
       if (actor) reportUnusualSale(actor, total, avgTicket);
     }
 
+    // Cobrar por WhatsApp: abre WhatsApp con el mensaje pre-armado y el link
+    // público de cobro. El cliente paga en /pagar/[codigo], no en persona.
+    if (viaWA) {
+      if (payCode) {
+        window.open(whatsappShareUrl(total, payCode), '_blank', 'noopener,noreferrer');
+        show(`WhatsApp abierto · cobro de Bs ${bs(total)}`, 'ok');
+      } else {
+        show('No hay link de cobro configurado', 'warn');
+      }
+      return;
+    }
+
     setModal({ total, status: 'waiting' });
-    if (viaWA) show('QR enviado por WhatsApp al cliente', 'ok');
   }
   function confirmarYNuevo() {
-    onCobrado?.({ id: ticketId(tnum), hora, total, lineas });
+    onCobrado?.({ id: ticketId(tnum), hora, total, lineas, ts: Date.now() });
     setModal(null);
     nuevoTicket();
   }
@@ -224,10 +239,11 @@ export function CajaScreen({
             type="button"
             disabled={!lineas.length}
             onClick={() => generarQR(true)}
+            aria-label="Cobrar por WhatsApp"
             className="flex flex-1 items-center justify-center gap-1.5 rounded-[14px] border border-[#065F46] bg-[#064E3B] py-3 text-xs font-semibold text-[#A7F3D0] disabled:border-wire disabled:bg-lift disabled:text-fog"
           >
             <Icon name="whatsapp" className="h-[18px] w-[18px]" />
-            WA
+            WhatsApp
           </button>
         </div>
         <button
