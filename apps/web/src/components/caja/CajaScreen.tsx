@@ -5,6 +5,7 @@ import { Icon } from '@/components/icons';
 import { bs, evalExpr, ticketId, type Linea, type Ticket } from '@/lib/caja';
 import { whatsappShareUrl } from '@/lib/payLink';
 import { recordQr, reportUnusualSale } from '@/lib/security';
+import type { ToastKind } from '@/components/Toaster';
 
 const keyBase =
   'flex min-h-[50px] select-none items-center justify-center bg-surface text-lg text-clean transition-colors active:bg-lift';
@@ -23,7 +24,7 @@ export interface CajaScreenProps {
   /** Se llama al confirmarse un cobro. */
   onCobrado?: (ticket: Ticket) => void;
   /** Toast compartido del dashboard. */
-  show: (msg: string, kind?: 'ok' | 'warn') => void;
+  show: (msg: string, kind?: ToastKind) => void;
   /** Oculta la caja sin desmontarla (preserva el estado entre pestañas). */
   hidden?: boolean;
   /** Operador de la caja; activa el monitoreo antifraude (tasa de QR y venta inusual). */
@@ -66,7 +67,10 @@ export function CajaScreen({
   // Aviso al dueño cuando se confirma el cobro (paridad con el prototipo).
   useEffect(() => {
     if (modal?.status !== 'paid') return;
-    const t = setTimeout(() => show(`Dueño notificado · Bs ${bs(modal.total)}`, 'ok'), 1200);
+    const t = setTimeout(
+      () => show(`Dueño notificado · Bs ${bs(modal.total)}`, 'celebrate'),
+      1200,
+    );
     return () => clearTimeout(t);
   }, [modal?.status, modal?.total, show]);
 

@@ -89,6 +89,26 @@ body {
   animation: flashCyan 0.6s ease forwards;
 }
 
+/* Celebración centrada al confirmarse el cobro: entra con scale + fade y un
+   leve rebote, para que se sienta como un festejo y no una notificación tímida. */
+@keyframes celebratePop {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.04);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.anim-celebrate {
+  animation: celebratePop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
 /* Confeti que cae al confirmar el cobro. */
 @keyframes confettiFall {
   0% {
