@@ -7,7 +7,6 @@ import { BottomNav, type NavItem } from '@/components/BottomNav';
 import { Toaster, useToast } from '@/components/Toaster';
 import { SessionTimeout } from '@/components/SessionTimeout';
 import { CajaScreen } from '@/components/caja/CajaScreen';
-import { BCB_MAX } from '@/lib/caja';
 import { RankingList } from '@/components/RankingList';
 import { Toggle } from '@/components/Toggle';
 import type { SupData } from '@/lib/teamData';
@@ -167,7 +166,7 @@ export function SupervisorDashboard({ sup }: { sup: SupData }) {
 
         <CajaScreen
           hidden={tab !== 'caja'}
-          limit={BCB_MAX}
+          limit={sup.limit}
           ticketStart={sup.ticketStart}
           actor={sup.name}
           show={show}

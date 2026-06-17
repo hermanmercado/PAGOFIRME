@@ -1,5 +1,7 @@
 /** Datos de demostración del equipo (supervisores, vendedores, rankings). */
 
+import { BCB_MAX } from './caja';
+
 export interface VendRow {
   ini: string;
   name: string;
@@ -25,6 +27,8 @@ export interface SupData {
   vcount: string;
   repTotal: string;
   ticketStart: number;
+  /** Límite por ticket de la sucursal (NIVEL 2). Siempre <= BCB_MAX. */
+  limit: number;
   vends: VendRow[];
   ranking: RankRow[];
 }
@@ -41,6 +45,7 @@ export const SUP_CENTRO: SupData = {
   vcount: '3 vendedores',
   repTotal: 'Bs 19,400',
   ticketStart: 11,
+  limit: 2000, // NIVEL 2: límite del dueño (menor al BCB)
   vends: [
     { ini: 'CA', name: 'Carlos Arias', tix: 12, monto: 'Bs 1,840' },
     { ini: 'JR', name: 'Juan Rojas', tix: 11, monto: 'Bs 1,620' },
@@ -65,6 +70,7 @@ export const SUP_SUR: SupData = {
   vcount: '2 vendedores',
   repTotal: 'Bs 11,800',
   ticketStart: 11,
+  limit: BCB_MAX, // solo tope BCB (NIVEL 1), sin límite del dueño
   vends: [
     { ini: 'ML', name: 'María López', tix: 12, monto: 'Bs 1,350' },
     { ini: 'AP', name: 'Ana Pereira', tix: 8, monto: 'Bs 850' },
