@@ -51,6 +51,8 @@ export function CajaScreen({
   const [lineas, setLineas] = useState<Linea[]>([]);
   // Contador para ids de línea estables (clave de React; sobrevive re-renders).
   const lineSeq = useRef(0);
+  // Evita registrar el ticket dos veces por cobro (uno por confirmación 'paid').
+  const recordedRef = useRef(false);
   const [tnum, setTnum] = useState(ticketStart);
   const [hora, setHora] = useState('');
   const [modal, setModal] = useState<{ total: number; status: 'waiting' | 'paid' } | null>(null);
@@ -75,6 +77,21 @@ export function CajaScreen({
     );
     return () => clearTimeout(t);
   }, [modal?.status, modal?.total, show]);
+
+  // Registra el ticket apenas se confirma el pago ('paid'), no al tocar "Nuevo
+  // ticket": así aparece de inmediato en Tickets y Resumen. El ref garantiza un
+  // único registro por cobro aunque el efecto se re-ejecute.
+  useEffect(() => {
+    if (modal?.status !== 'paid' || recordedRef.current) return;
+    recordedRef.current = true;
+    onCobrado?.({
+      id: ticketId(tnum),
+      hora,
+      total: lineas.reduce((s, l) => s + l.monto, 0),
+      lineas,
+      ts: Date.now(),
+    });
+  }, [modal?.status, onCobrado, tnum, hora, lineas]);
 
   const confetti = useMemo(() => {
     if (modal?.status !== 'paid') return [];
@@ -149,10 +166,11 @@ export function CajaScreen({
       return;
     }
 
+    recordedRef.current = false; // nuevo cobro: habilita un registro fresco al confirmarse
     setModal({ total, status: 'waiting' });
   }
   function confirmarYNuevo() {
-    onCobrado?.({ id: ticketId(tnum), hora, total, lineas, ts: Date.now() });
+    // El ticket ya se registró al confirmarse el pago; acá solo se resetea la caja.
     setModal(null);
     nuevoTicket();
   }
