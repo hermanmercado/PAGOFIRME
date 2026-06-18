@@ -4,7 +4,11 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DEMO_ROLES, resolveRoleFromEmail, type DemoRole } from '@/lib/roles';
 import { Icon } from '@/components/icons';
+import { Onboarding } from '@/components/Onboarding';
 import { clearLogin, getLockRemaining, LOCK_MS, recordFailedLogin } from '@/lib/security';
+
+/** Clave en localStorage que marca que el onboarding ya se vio. */
+const ONBOARDING_KEY = 'onboarding_completed';
 
 /** Contraseña del login manual en la demo. */
 const DEMO_PASSWORD = 'pagofirme';
@@ -35,6 +39,28 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [lockUntil, setLockUntil] = useState(0);
   const [lockLeft, setLockLeft] = useState(0);
+  // Gate del onboarding: 'loading' hasta leer localStorage; primera vez →
+  // 'onboarding'; si ya lo vio → 'login' directo.
+  const [phase, setPhase] = useState<'loading' | 'onboarding' | 'login'>('loading');
+
+  useEffect(() => {
+    let seen = true;
+    try {
+      seen = localStorage.getItem(ONBOARDING_KEY) === 'true';
+    } catch {
+      // localStorage no disponible (modo privado, etc.) → saltamos el onboarding.
+    }
+    setPhase(seen ? 'login' : 'onboarding');
+  }, []);
+
+  function finishOnboarding() {
+    try {
+      localStorage.setItem(ONBOARDING_KEY, 'true');
+    } catch {
+      // Ignoramos: el peor caso es que el onboarding reaparezca otra vez.
+    }
+    setPhase('login');
+  }
 
   // Cuenta regresiva en vivo mientras la cuenta está bloqueada.
   useEffect(() => {
@@ -87,6 +113,14 @@ export default function LoginPage() {
         }`,
       );
     }
+  }
+
+  // Evita el parpadeo del login antes de saber si toca onboarding.
+  if (phase === 'loading') {
+    return <main className="min-h-screen bg-void" />;
+  }
+  if (phase === 'onboarding') {
+    return <Onboarding onDone={finishOnboarding} />;
   }
 
   return (
