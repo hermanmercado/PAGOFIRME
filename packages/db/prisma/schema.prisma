@@ -1,5 +1,14 @@
 // PagoFirme — Esquema de base de datos
-// Pasarela de pagos QR multi-riel para Bolivia.
+// Plataforma de cobros QR para Bolivia con jerarquía de equipos.
+//
+// Modelo de dominio (refleja el frontend en apps/web):
+//   Dueño ── posee ──▶ Unidad de negocio ── tiene ──▶ Supervisores (sucursal)
+//                                                  └─▶ Vendedores
+//   Vendedor ── confirma ──▶ Ticket (cobro confirmado) usando un QrCode.
+//
+// Convención de dinero: todos los importes se guardan en la unidad menor
+// (centavos de BOB) como BigInt para evitar errores de punto flotante.
+// 1 Bs = 100. Ej.: Bs 2.000 → 200000.
 
 generator client {
   provider = "prisma-client-js"
@@ -7,6 +16,9 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  // La URL viene de la variable de entorno DATABASE_URL (la inyecta Railway en
+  // producción). Para Prisma 7 la URL de Migrate/Introspect vive en
+  // prisma.config.ts; el cliente la lee en runtime desde process.env.
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -14,9 +26,10 @@ datasource db {
 // ─────────────────────────────────────────────────────────────
 
 enum UserRole {
-  ADMIN
-  MERCHANT
-  CUSTOMER
+  VENDEDOR // opera la caja y confirma cobros
+  SUPERVISOR // gestiona una sucursal/tienda y su equipo de vendedores
+  DUENO // dueño del negocio; administra unidades, supervisores y límites
+  ADMIN // superadmin interno de PagoFirme (verificación, soporte)
 }
 
 enum UserStatus {
@@ -32,8 +45,8 @@ model User {
   phone         String?    @unique
   passwordHash  String
   fullName      String
-  role          UserRole   @default(CUSTOMER)
-  status        UserStatus @default(PENDING)
+  role          UserRole   @default(VENDEDOR)
+  status        UserStatus @default(ACTIVE)
   emailVerified Boolean    @default(false)
   phoneVerified Boolean    @default(false)
 
@@ -42,7 +55,33 @@ model User {
   twoFactorSecret  String?
   twoFactorBackup  String[] @default([])
 
-  merchant      Merchant?
+  // ── Organización ──────────────────────────────────────────
+  // Unidades de negocio que posee (sólo aplica a DUENO).
+  ownedUnits BusinessUnit[] @relation("UnitOwner")
+
+  // Unidad a la que pertenece (SUPERVISOR y VENDEDOR).
+  businessUnitId String?
+  businessUnit   BusinessUnit? @relation("UnitMembers", fields: [businessUnitId], references: [id], onDelete: SetNull)
+
+  // Jerarquía: un VENDEDOR reporta a un SUPERVISOR (auto-relación).
+  supervisorId String?
+  supervisor   User?   @relation("SupervisorTeam", fields: [supervisorId], references: [id], onDelete: SetNull)
+  team         User[]  @relation("SupervisorTeam")
+
+  // Sucursal/tienda a cargo (SUPERVISOR) o donde opera (VENDEDOR).
+  branchName String?
+
+  // Límite por cobro propio (NIVEL 2), en centavos. Null = hereda el de la
+  // unidad. Nunca debe superar el tope regulatorio del BCB (NIVEL 1), que se
+  // valida en código (BCB_MAX), no en la base de datos.
+  perTicketLimit BigInt?
+
+  // Código de cobro público y estable: pagofirme.bo/pagar/{payCode}.
+  payCode String? @unique
+
+  // ── Relaciones operativas ─────────────────────────────────
+  tickets       Ticket[]
+  qrCodes       QrCode[]
   refreshTokens RefreshToken[]
   auditLogs     AuditLog[]
 
@@ -52,20 +91,22 @@ model User {
 
   @@index([role])
   @@index([status])
+  @@index([businessUnitId])
+  @@index([supervisorId])
   @@map("users")
 }
 
 model RefreshToken {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash String   @unique
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
   family    String // rotación: identifica la cadena de tokens
   userAgent String?
   ipAddress String?
   expiresAt DateTime
   revokedAt DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   @@index([userId])
   @@index([family])
@@ -73,38 +114,7 @@ model RefreshToken {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Comercios (merchants)
-// ─────────────────────────────────────────────────────────────
-
-enum MerchantStatus {
-  PENDING_REVIEW
-  ACTIVE
-  SUSPENDED
-}
-
-model Merchant {
-  id           String         @id @default(cuid())
-  userId       String         @unique
-  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  businessName String
-  legalName    String?
-  nit          String?        @unique // Número de Identificación Tributaria (Bolivia)
-  category     String?
-  status       MerchantStatus @default(PENDING_REVIEW)
-
-  accounts     Account[]
-  qrCodes      QrCode[]
-  transactions Transaction[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([status])
-  @@map("merchants")
-}
-
-// ─────────────────────────────────────────────────────────────
-// Cuentas y saldos
+// Unidades de negocio
 // ─────────────────────────────────────────────────────────────
 
 enum Currency {
@@ -112,57 +122,39 @@ enum Currency {
   USD
 }
 
-model Account {
-  id         String   @id @default(cuid())
-  merchantId String
-  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
-  currency   Currency @default(BOB)
-  // Saldo en la unidad menor (centavos) para evitar errores de punto flotante.
-  balance    BigInt   @default(0)
+model BusinessUnit {
+  id     String  @id @default(cuid())
+  name   String
+  active Boolean @default(true)
 
-  ledgerEntries LedgerEntry[]
+  // Dueño de la unidad.
+  ownerId String
+  owner   User   @relation("UnitOwner", fields: [ownerId], references: [id], onDelete: Cascade)
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  currency       Currency @default(BOB)
+  // Límite por cobro de la unidad (NIVEL 2), en centavos. Null = sólo aplica el
+  // tope BCB (NIVEL 1). Debe ser <= BCB_MAX.
+  perTicketLimit BigInt?
 
-  @@unique([merchantId, currency])
-  @@map("accounts")
-}
-
-// ─────────────────────────────────────────────────────────────
-// Arquitectura multi-riel (payment rails)
-// ─────────────────────────────────────────────────────────────
-
-enum RailType {
-  BANK_QR // QR interoperable bancario (ASFI / BCB)
-  WALLET // Billeteras móviles
-  INTERNAL // Transferencias internas PagoFirme
-}
-
-model PaymentRail {
-  id          String   @id @default(cuid())
-  type        RailType
-  code        String   @unique // ej. "SIMPLE_QR", "TIGO_MONEY"
-  displayName String
-  provider    String? // banco o proveedor
-  enabled     Boolean  @default(true)
-  priority    Int      @default(0) // orden de enrutamiento
-  config      Json     @default("{}")
-
-  transactions Transaction[]
+  // Miembros de la unidad (supervisores y vendedores).
+  members User[]   @relation("UnitMembers")
+  qrCodes QrCode[]
+  tickets Ticket[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([enabled, priority])
-  @@map("payment_rails")
+  @@index([ownerId])
+  @@index([active])
+  @@map("business_units")
 }
 
 // ─────────────────────────────────────────────────────────────
-// QR y transacciones
+// Códigos QR (por negocio / vendedor)
 // ─────────────────────────────────────────────────────────────
 
 enum QrType {
+  DAILY // QR diario automático por vendedor (cambia cada día)
   STATIC // monto abierto, reutilizable
   DYNAMIC // monto fijo, un solo uso
 }
@@ -175,89 +167,80 @@ enum QrStatus {
 }
 
 model QrCode {
-  id          String    @id @default(cuid())
-  merchantId  String
-  merchant    Merchant  @relation(fields: [merchantId], references: [id], onDelete: Cascade)
-  type        QrType    @default(DYNAMIC)
-  status      QrStatus  @default(ACTIVE)
-  currency    Currency  @default(BOB)
-  amount      BigInt? // null para QR estáticos (monto abierto)
-  reference   String? // referencia del comercio
-  description String?
-  payload     String    @unique // contenido EMVCo del QR
-  expiresAt   DateTime?
+  id   String @id @default(cuid())
+  code String @unique // payload/código del QR, ej. "PF-20260618-123456"
 
-  transactions Transaction[]
+  businessUnitId String
+  businessUnit   BusinessUnit @relation(fields: [businessUnitId], references: [id], onDelete: Cascade)
+
+  // Vendedor dueño del QR (los QR DAILY son por vendedor).
+  vendorId String?
+  vendor   User?   @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+
+  type      QrType    @default(DAILY)
+  status    QrStatus  @default(ACTIVE)
+  currency  Currency  @default(BOB)
+  amount    BigInt? // null para QR de monto abierto
+  label     String?
+  // Fecha de validez (QR diarios) en hora local, formato YYYY-MM-DD.
+  validOn   String?
+  expiresAt DateTime?
+
+  tickets Ticket[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([merchantId, status])
+  @@index([businessUnitId, status])
+  @@index([vendorId])
   @@map("qr_codes")
 }
 
-enum TransactionStatus {
-  PENDING
-  PROCESSING
-  SUCCEEDED
-  FAILED
-  REFUNDED
-}
-
-model Transaction {
-  id            String            @id @default(cuid())
-  merchantId    String
-  merchant      Merchant          @relation(fields: [merchantId], references: [id])
-  qrCodeId      String?
-  qrCode        QrCode?           @relation(fields: [qrCodeId], references: [id])
-  railId        String?
-  rail          PaymentRail?      @relation(fields: [railId], references: [id])
-  status        TransactionStatus @default(PENDING)
-  currency      Currency          @default(BOB)
-  amount        BigInt // en centavos
-  fee           BigInt            @default(0) // cero comisiones :)
-  netAmount     BigInt // amount - fee
-  payerName     String?
-  payerDocument String?
-  externalRef   String? // id del proveedor / banco
-  metadata      Json              @default("{}")
-  failureReason String?
-
-  ledgerEntries LedgerEntry[]
-
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  settledAt DateTime?
-
-  @@index([merchantId, status])
-  @@index([createdAt])
-  @@index([externalRef])
-  @@map("transactions")
-}
-
 // ─────────────────────────────────────────────────────────────
-// Libro mayor (double-entry ledger)
+// Tickets (cobros confirmados)
 // ─────────────────────────────────────────────────────────────
 
-enum LedgerDirection {
-  DEBIT
-  CREDIT
+enum TicketStatus {
+  CONFIRMED // cobro confirmado
+  REFUNDED // reembolsado
+  CANCELLED // anulado
 }
 
-model LedgerEntry {
-  id            String          @id @default(cuid())
-  accountId     String
-  account       Account         @relation(fields: [accountId], references: [id])
-  transactionId String
-  transaction   Transaction     @relation(fields: [transactionId], references: [id])
-  direction     LedgerDirection
-  amount        BigInt
-  balanceAfter  BigInt
-  createdAt     DateTime        @default(now())
+model Ticket {
+  id     String @id @default(cuid())
+  // Número correlativo legible por unidad (#T-0001).
+  number Int
 
-  @@index([accountId])
-  @@index([transactionId])
-  @@map("ledger_entries")
+  businessUnitId String
+  businessUnit   BusinessUnit @relation(fields: [businessUnitId], references: [id])
+
+  // Vendedor que confirmó el cobro.
+  vendorId String
+  vendor   User   @relation(fields: [vendorId], references: [id])
+
+  // QR usado para el cobro (si aplica).
+  qrCodeId String?
+  qrCode   QrCode? @relation(fields: [qrCodeId], references: [id])
+
+  status   TicketStatus @default(CONFIRMED)
+  currency Currency     @default(BOB)
+  // Total cobrado, en centavos.
+  total    BigInt
+  // Detalle de líneas del cobro: [{ id, expr, monto }]. Ver apps/web/.../caja.ts.
+  lines    Json         @default("[]")
+
+  payerName String?
+  reference String?
+  metadata  Json    @default("{}")
+
+  confirmedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([businessUnitId, number])
+  @@index([vendorId, confirmedAt])
+  @@index([businessUnitId, confirmedAt])
+  @@map("tickets")
 }
 
 // ─────────────────────────────────────────────────────────────
