@@ -51,7 +51,11 @@ app.onError((err, c) => {
 
 app.notFound((c) => c.json({ error: 'Recurso no encontrado' }, 404));
 
-serve({ fetch: app.fetch, port: env.API_PORT, hostname: env.API_HOST }, (info) => {
+// Railway (y la mayoría de PaaS) inyecta el puerto vía PORT; lo honramos y
+// caemos a API_PORT para desarrollo local.
+const port = Number(process.env.PORT) || env.API_PORT;
+
+serve({ fetch: app.fetch, port, hostname: env.API_HOST }, (info) => {
   console.info(`🚀 API PagoFirme escuchando en http://${env.API_HOST}:${info.port}`);
 });
 
