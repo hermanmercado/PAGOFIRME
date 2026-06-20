@@ -78,6 +78,28 @@ const DEV: DemoRole = {
 export const DEMO_ROLES: DemoRole[] = [VENDEDOR, SUP_CENTRO, SUP_SUR, DUENO, ADMIN, DEV];
 
 /**
+ * Mapea el rol real devuelto por la API al dashboard correspondiente. Para los
+ * supervisores, que en la demo tienen dos paneles (Centro/Sur), desambiguamos
+ * por el correo; el resto se resuelve directo por rol.
+ */
+export function dashboardForRole(role: string, email: string): Route {
+  switch (role) {
+    case 'ADMIN':
+      return '/admin' as Route;
+    case 'DUENO':
+      return '/dueno' as Route;
+    case 'SUPERVISOR': {
+      const e = email.toLowerCase();
+      return (e.includes('rosa') || e.includes('sur')
+        ? '/supervisor-sur'
+        : '/supervisor-centro') as Route;
+    }
+    default:
+      return '/vendedor' as Route;
+  }
+}
+
+/**
  * Resuelve el rol a partir del email del formulario manual, replicando la
  * heurística del prototipo (admin / dueño / supervisores → rol; resto → vendedor).
  */

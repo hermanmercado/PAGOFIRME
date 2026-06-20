@@ -16,6 +16,8 @@ export const registerSchema = z.object({
     .optional(),
   password: passwordSchema,
   fullName: z.string().min(2, 'Nombre demasiado corto').max(120),
+  // Auto-registro = alta de un dueño con su negocio. La unidad se crea junto al usuario.
+  businessName: z.string().min(2, 'Nombre del negocio demasiado corto').max(120),
 });
 
 export const loginSchema = z.object({

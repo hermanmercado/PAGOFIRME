@@ -48,6 +48,8 @@ async function issueTokens(userId: string, role: string, family: string, meta: {
 
 export const authRoutes = new Hono<AppEnv>()
   // ── Registro ──────────────────────────────────────────────
+  // Auto-registro: crea un DUENO junto con su unidad de negocio y devuelve los
+  // tokens de sesión, igual que el login.
   .post('/register', zValidator('json', registerSchema), async (c) => {
     const input = c.req.valid('json');
 
@@ -56,17 +58,32 @@ export const authRoutes = new Hono<AppEnv>()
       throw new HTTPException(409, { message: 'El correo ya está registrado' });
     }
 
-    const user = await prisma.user.create({
-      data: {
-        email: input.email,
-        phone: input.phone ?? null,
-        passwordHash: await hashPassword(input.password),
-        fullName: input.fullName,
-      },
-      select: { id: true, email: true, fullName: true, role: true },
+    // Hasheamos fuera de la transacción para no mantenerla abierta durante bcrypt.
+    const passwordHash = await hashPassword(input.password);
+
+    const user = await prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          email: input.email,
+          phone: input.phone ?? null,
+          passwordHash,
+          fullName: input.fullName,
+          role: 'DUENO',
+        },
+        select: { id: true, email: true, role: true },
+      });
+      await tx.businessUnit.create({
+        data: { name: input.businessName, ownerId: created.id },
+      });
+      return created;
     });
 
-    return c.json({ user }, 201);
+    const tokens = await issueTokens(user.id, user.role, newTokenFamily(), {
+      userAgent: c.req.header('User-Agent'),
+      ipAddress: c.req.header('X-Forwarded-For'),
+    });
+
+    return c.json({ ...tokens, user }, 201);
   })
 
   // ── Login ─────────────────────────────────────────────────

@@ -2,16 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { DEMO_ROLES, resolveRoleFromEmail, type DemoRole } from '@/lib/roles';
+import { DEMO_ROLES, dashboardForRole, type DemoRole } from '@/lib/roles';
+import { login } from '@/lib/auth';
 import { Icon } from '@/components/icons';
 import { Onboarding } from '@/components/Onboarding';
 import { clearLogin, getLockRemaining, LOCK_MS, recordFailedLogin } from '@/lib/security';
 
 /** Clave en localStorage que marca que el onboarding ya se vio. */
 const ONBOARDING_KEY = 'onboarding_completed';
-
-/** Contraseña del login manual en la demo. */
-const DEMO_PASSWORD = 'pagofirme';
 
 /** Versión de la app + commit del build (inyectado por Railway; 'dev' en local). */
 const APP_VERSION = '2.1.0';
@@ -36,6 +34,9 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [totp, setTotp] = useState('');
+  const [needs2fa, setNeeds2fa] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lockUntil, setLockUntil] = useState(0);
   const [lockLeft, setLockLeft] = useState(0);
@@ -85,8 +86,9 @@ export default function LoginPage() {
     router.push(role.dashboard);
   }
 
-  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submitting) return;
     const key = (email.trim() || 'cuenta').toLowerCase();
 
     const rem = getLockRemaining(key);
@@ -95,23 +97,36 @@ export default function LoginPage() {
       return;
     }
 
-    if (password === DEMO_PASSWORD) {
-      clearLogin(key);
-      setError(null);
-      goTo(resolveRoleFromEmail(email));
-      return;
-    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await login(email.trim(), password, needs2fa ? totp : undefined);
 
-    const { remaining, locked: nowLocked } = recordFailedLogin(key);
-    if (nowLocked) {
-      setError(null);
-      setLockUntil(Date.now() + LOCK_MS);
-    } else {
-      setError(
-        `Contraseña incorrecta · te ${remaining === 1 ? 'queda' : 'quedan'} ${remaining} intento${
-          remaining === 1 ? '' : 's'
-        }`,
-      );
+      // Cuenta con 2FA: pedimos el código y reenviamos.
+      if ('requires2fa' in res) {
+        setNeeds2fa(true);
+        return;
+      }
+
+      clearLogin(key);
+      router.push(dashboardForRole(res.user.role, res.user.email));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'No se pudo iniciar sesión';
+      const { remaining, locked: nowLocked } = recordFailedLogin(key);
+      if (nowLocked) {
+        setError(null);
+        setLockUntil(Date.now() + LOCK_MS);
+      } else if (needs2fa) {
+        setError(msg);
+      } else {
+        setError(
+          `${msg} · te ${remaining === 1 ? 'queda' : 'quedan'} ${remaining} intento${
+            remaining === 1 ? '' : 's'
+          }`,
+        );
+      }
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -196,9 +211,23 @@ export default function LoginPage() {
             placeholder="••••••••"
             className={inputClass}
           />
-          <p className="-mt-1 mb-2.5 text-[10px] text-fog">
-            Demo: contraseña <span className="text-cipher">pagofirme</span>
-          </p>
+          {needs2fa && (
+            <>
+              <label className="mb-1 block text-[11px] text-ghost" htmlFor="totp">
+                Código 2FA
+              </label>
+              <input
+                id="totp"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                value={totp}
+                onChange={(e) => setTotp(e.target.value.replace(/\D/g, ''))}
+                placeholder="123456"
+                className={inputClass}
+              />
+            </>
+          )}
 
           {locked ? (
             <div className="mb-2.5 flex items-center gap-2 rounded-[10px] border border-loss/30 bg-loss/[0.08] px-3 py-2">
@@ -218,11 +247,17 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={locked}
+            disabled={locked || submitting}
             className="flex w-full items-center justify-center gap-2 rounded-[14px] bg-cipher px-4 py-3 text-sm font-semibold text-[#0A0C15] transition active:scale-[.99] active:opacity-90 disabled:bg-lift disabled:text-fog"
           >
             <Icon name="login" className="h-[18px] w-[18px]" />
-            {locked ? `Bloqueado · ${mmss(lockLeft)}` : 'Ingresar →'}
+            {locked
+              ? `Bloqueado · ${mmss(lockLeft)}`
+              : submitting
+                ? 'Ingresando…'
+                : needs2fa
+                  ? 'Verificar código →'
+                  : 'Ingresar →'}
           </button>
         </form>
 
