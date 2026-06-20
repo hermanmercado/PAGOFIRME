@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { PrismaPg } from '@prisma/adapter-pg';
 import pkg from '@prisma/client';
 import type { UserRole } from '@prisma/client';
@@ -6,6 +7,9 @@ import { config as loadEnv } from 'dotenv';
 
 // Ver nota en src/index.ts: @prisma/client es CJS con exports dinámicos.
 const { PrismaClient, UserRole: Role } = pkg;
+
+// El paquete es ESM ("type": "module"), donde __dirname no existe; lo derivamos.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 loadEnv({ path: path.resolve(__dirname, '../../../.env') });
 loadEnv({ path: path.resolve(__dirname, '../.env') });
