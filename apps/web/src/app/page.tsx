@@ -1,307 +1,227 @@
-'use client';
+import Link from 'next/link';
+import { Icon, type IconName } from '@/components/icons';
+import { QrMatrix } from '@/components/QrMatrix';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { DEMO_ROLES, dashboardForRole, type DemoRole } from '@/lib/roles';
-import { login } from '@/lib/auth';
-import { Icon } from '@/components/icons';
-import { Onboarding } from '@/components/Onboarding';
-import { clearLogin, getLockRemaining, LOCK_MS, recordFailedLogin } from '@/lib/security';
+/**
+ * Landing pública de PagoFirme. Server Component (sin hooks): tipográfico,
+ * oscuro, con mucho aire, titulares en Syne (font-heading) y acento cian.
+ * Reutiliza la marca: la matriz QR y la línea de escaneo `qr-scan-line`.
+ */
 
-/** Clave en localStorage que marca que el onboarding ya se vio. */
-const ONBOARDING_KEY = 'onboarding_completed';
+const claims: Array<{ icon: IconName; label: string; detail: string }> = [
+  { icon: 'coin', label: '0% comisiones', detail: 'Cobrás el 100%' },
+  { icon: 'shield', label: 'Open BCB', detail: 'Multi-riel regulado' },
+  { icon: 'circle-check', label: 'Confirmación al instante', detail: 'Sin esperas' },
+];
 
-/** Versión de la app + commit del build (inyectado por Railway; 'dev' en local). */
-const APP_VERSION = '2.1.0';
-const BUILD_COMMIT = process.env.NEXT_PUBLIC_COMMIT_SHA ?? 'dev';
+const features: Array<{ icon: IconName; title: string; body: string }> = [
+  {
+    icon: 'qrcode',
+    title: 'Cobrá con un QR',
+    body: 'Generá un QR por negocio o por vendedor. Tu cliente escanea, paga y listo —sin terminal, sin hardware.',
+  },
+  {
+    icon: 'cash',
+    title: 'Cero comisiones',
+    body: 'No te quedamos con un centavo de cada venta. Lo que cobrás es lo que recibís, directo a tu cuenta.',
+  },
+  {
+    icon: 'chart-bar',
+    title: 'Equipo y control',
+    body: 'Sucursales, supervisores y vendedores con límites por cobro y métricas en tiempo real. Todo desde un panel.',
+  },
+];
 
-const mmss = (ms: number) => {
-  const total = Math.ceil(ms / 1000);
-  const m = Math.floor(total / 60);
-  const s = total % 60;
-  return `${m}:${String(s).padStart(2, '0')}`;
-};
+const steps: Array<{ title: string; body: string }> = [
+  { title: 'Creá tu cuenta', body: 'Registrás vos y tu negocio en menos de un minuto.' },
+  { title: 'Generá tu QR', body: 'Uno por tienda o uno por vendedor, como prefieras.' },
+  { title: 'Cobrá y confirmá', body: 'El pago se confirma al instante. Cero comisiones, siempre.' },
+];
 
-const inputClass =
-  'mb-2.5 w-full rounded-[10px] border border-wire bg-surface px-3.5 py-2.5 text-sm text-clean outline-none transition-colors placeholder:text-fog focus:border-cipher';
-
-const maskStyle = {
-  WebkitMaskImage: 'radial-gradient(ellipse 70% 50% at 50% 0%, black 0%, transparent 100%)',
-  maskImage: 'radial-gradient(ellipse 70% 50% at 50% 0%, black 0%, transparent 100%)',
-} as const;
-
-export default function LoginPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [totp, setTotp] = useState('');
-  const [needs2fa, setNeeds2fa] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [lockUntil, setLockUntil] = useState(0);
-  const [lockLeft, setLockLeft] = useState(0);
-  // Gate del onboarding: 'loading' hasta leer localStorage; primera vez →
-  // 'onboarding'; si ya lo vio → 'login' directo.
-  const [phase, setPhase] = useState<'loading' | 'onboarding' | 'login'>('loading');
-
-  useEffect(() => {
-    let seen = true;
-    try {
-      seen = localStorage.getItem(ONBOARDING_KEY) === 'true';
-    } catch {
-      // localStorage no disponible (modo privado, etc.) → saltamos el onboarding.
-    }
-    setPhase(seen ? 'login' : 'onboarding');
-  }, []);
-
-  function finishOnboarding() {
-    try {
-      localStorage.setItem(ONBOARDING_KEY, 'true');
-    } catch {
-      // Ignoramos: el peor caso es que el onboarding reaparezca otra vez.
-    }
-    setPhase('login');
-  }
-
-  // Cuenta regresiva en vivo mientras la cuenta está bloqueada.
-  useEffect(() => {
-    if (!lockUntil) return;
-    const tick = () => {
-      const left = lockUntil - Date.now();
-      if (left <= 0) {
-        setLockUntil(0);
-        setLockLeft(0);
-      } else {
-        setLockLeft(left);
-      }
-    };
-    tick();
-    const id = setInterval(tick, 500);
-    return () => clearInterval(id);
-  }, [lockUntil]);
-
-  const locked = lockLeft > 0;
-
-  function goTo(role: DemoRole) {
-    router.push(role.dashboard);
-  }
-
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (submitting) return;
-    const key = (email.trim() || 'cuenta').toLowerCase();
-
-    const rem = getLockRemaining(key);
-    if (rem > 0) {
-      setLockUntil(Date.now() + rem);
-      return;
-    }
-
-    setSubmitting(true);
-    setError(null);
-    try {
-      const res = await login(email.trim(), password, needs2fa ? totp : undefined);
-
-      // Cuenta con 2FA: pedimos el código y reenviamos.
-      if ('requires2fa' in res) {
-        setNeeds2fa(true);
-        return;
-      }
-
-      clearLogin(key);
-      router.push(dashboardForRole(res.user.role, res.user.email));
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'No se pudo iniciar sesión';
-      const { remaining, locked: nowLocked } = recordFailedLogin(key);
-      if (nowLocked) {
-        setError(null);
-        setLockUntil(Date.now() + LOCK_MS);
-      } else if (needs2fa) {
-        setError(msg);
-      } else {
-        setError(
-          `${msg} · te ${remaining === 1 ? 'queda' : 'quedan'} ${remaining} intento${
-            remaining === 1 ? '' : 's'
-          }`,
-        );
-      }
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  // Evita el parpadeo del login antes de saber si toca onboarding.
-  if (phase === 'loading') {
-    return <main className="min-h-screen bg-void" />;
-  }
-  if (phase === 'onboarding') {
-    return <Onboarding onDone={finishOnboarding} />;
-  }
-
+export default function LandingPage() {
   return (
-    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-void px-4 py-10">
+    <main className="relative min-h-screen overflow-hidden bg-void text-clean">
       {/* Atmósfera: gradientes radiales cian sobre el fondo oscuro. */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            'radial-gradient(ellipse 80% 60% at 50% -10%, rgba(34,211,238,.08) 0%, transparent 70%), radial-gradient(ellipse 60% 40% at 80% 100%, rgba(34,211,238,.04) 0%, transparent 60%)',
+            'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(34,211,238,.10) 0%, transparent 70%), radial-gradient(ellipse 60% 50% at 85% 110%, rgba(34,211,238,.05) 0%, transparent 60%)',
         }}
       />
-      {/* Retícula de puntos tipo QR, difuminada hacia abajo. */}
+      {/* Retícula de puntos tipo QR. */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0"
         style={{
-          backgroundImage:
-            'radial-gradient(circle, rgba(34,211,238,.12) 1px, transparent 1px)',
-          backgroundSize: '28px 28px',
-          ...maskStyle,
+          backgroundImage: 'radial-gradient(circle, rgba(34,211,238,.10) 1px, transparent 1px)',
+          backgroundSize: '32px 32px',
+          WebkitMaskImage: 'radial-gradient(ellipse 70% 60% at 50% 0%, black 0%, transparent 100%)',
+          maskImage: 'radial-gradient(ellipse 70% 60% at 50% 0%, black 0%, transparent 100%)',
         }}
       />
 
-      <div className="relative z-10 w-full max-w-[420px]">
-        {/* Logo */}
-        <div className="mb-6 text-center">
-          <div className="qr-glow-pulse relative mx-auto mb-3.5 flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border border-cipher/25 bg-gradient-to-br from-surface to-lift">
-            <Icon name="qrcode" className="h-7 w-7 text-cipher" />
-            <span className="qr-scan-line" aria-hidden="true" />
+      <div className="relative z-10 mx-auto w-full max-w-5xl px-5">
+        {/* ── Header ─────────────────────────────────────────── */}
+        <header className="flex items-center justify-between py-6">
+          <div className="flex items-center gap-2.5">
+            <span className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl border border-cipher/25 bg-gradient-to-br from-surface to-lift">
+              <Icon name="qrcode" className="h-5 w-5 text-cipher" />
+              <span className="qr-scan-line" aria-hidden="true" />
+            </span>
+            <span className="font-heading text-lg font-bold tracking-tight">
+              pago<span className="text-cipher">firme</span>
+            </span>
           </div>
-          <div className="font-heading text-2xl font-bold text-clean">
-            pago<span className="text-cipher">firme</span>
-          </div>
-          <div className="mt-1.5 flex items-center justify-center gap-1.5 text-[11px] text-fog">
-            <span className="h-1 w-1 rounded-full bg-cipher/50" />
-            Cero comisiones · Bolivia · Open BCB
-            <span className="h-1 w-1 rounded-full bg-cipher/50" />
-          </div>
-        </div>
-
-        {/* Bienvenida */}
-        <h1 className="mb-0.5 font-heading text-[17px] font-semibold tracking-tight text-clean">
-          Bienvenido
-        </h1>
-        <p className="mb-4 text-xs text-fog">Inicia sesión con tu cuenta</p>
-
-        {/* Formulario */}
-        <form onSubmit={handleSubmit}>
-          <label className="mb-1 block text-[11px] text-ghost" htmlFor="email">
-            Correo electrónico
-          </label>
-          <input
-            id="email"
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="tu@negocio.bo"
-            className={inputClass}
-          />
-
-          <label className="mb-1 block text-[11px] text-ghost" htmlFor="password">
-            Contraseña
-          </label>
-          <input
-            id="password"
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
-            className={inputClass}
-          />
-          {needs2fa && (
-            <>
-              <label className="mb-1 block text-[11px] text-ghost" htmlFor="totp">
-                Código 2FA
-              </label>
-              <input
-                id="totp"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={6}
-                value={totp}
-                onChange={(e) => setTotp(e.target.value.replace(/\D/g, ''))}
-                placeholder="123456"
-                className={inputClass}
-              />
-            </>
-          )}
-
-          {locked ? (
-            <div className="mb-2.5 flex items-center gap-2 rounded-[10px] border border-loss/30 bg-loss/[0.08] px-3 py-2">
-              <Icon name="lock" className="h-4 w-4 shrink-0 text-loss" />
-              <span className="text-[11px] text-loss">
-                Cuenta bloqueada por seguridad · reintentá en {mmss(lockLeft)}
-              </span>
-            </div>
-          ) : (
-            error && (
-              <div className="mb-2.5 flex items-center gap-2 rounded-[10px] border border-risk/30 bg-risk/[0.06] px-3 py-2">
-                <Icon name="alert-triangle" className="h-4 w-4 shrink-0 text-risk" />
-                <span className="text-[11px] text-risk">{error}</span>
-              </div>
-            )
-          )}
-
-          <button
-            type="submit"
-            disabled={locked || submitting}
-            className="flex w-full items-center justify-center gap-2 rounded-[14px] bg-cipher px-4 py-3 text-sm font-semibold text-[#0A0C15] transition active:scale-[.99] active:opacity-90 disabled:bg-lift disabled:text-fog"
+          <Link
+            href="/login"
+            className="rounded-full border border-wire px-4 py-2 text-xs font-medium text-ghost transition-colors hover:border-cipher hover:text-clean"
           >
-            <Icon name="login" className="h-[18px] w-[18px]" />
-            {locked
-              ? `Bloqueado · ${mmss(lockLeft)}`
-              : submitting
-                ? 'Ingresando…'
-                : needs2fa
-                  ? 'Verificar código →'
-                  : 'Ingresar →'}
-          </button>
-        </form>
+            Ingresar
+          </Link>
+        </header>
 
-        <p className="my-4 text-center text-xs text-fog">
-          ¿Olvidaste tu contraseña? <span className="text-cipher">Recuperar</span>
-        </p>
-
-        {/* Separador */}
-        <div className="mb-2.5 flex items-center gap-2.5">
-          <div className="h-px flex-1 bg-wire" />
-          <span className="text-[11px] text-fog">o entra como demo</span>
-          <div className="h-px flex-1 bg-wire" />
-        </div>
-
-        {/* Tarjetas de rol — navegan directo al dashboard correspondiente. */}
-        <div className="flex flex-col gap-1.5">
-          {DEMO_ROLES.map((role) => (
-            <button
-              key={role.id}
-              type="button"
-              onClick={() => goTo(role)}
-              className="group flex items-center gap-2.5 rounded-[10px] border border-wire bg-surface px-3.5 py-2.5 text-left transition-colors hover:border-cipher hover:bg-lift"
-            >
-              <span
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
-                style={{ background: role.iconBg }}
+        {/* ── Hero ───────────────────────────────────────────── */}
+        <section className="grid items-center gap-10 py-16 md:grid-cols-2 md:py-24">
+          <div>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-cipher/25 bg-cipher/[0.06] px-3 py-1 text-[11px] font-medium text-cipher">
+              <span className="h-1.5 w-1.5 rounded-full bg-cipher" />
+              Pagos QR para Bolivia
+            </span>
+            <h1 className="mt-5 font-heading text-5xl font-extrabold leading-[1.05] tracking-tight sm:text-6xl">
+              Cobrá con un QR.
+              <br />
+              <span className="text-cipher">Cero comisiones.</span>
+            </h1>
+            <p className="mt-5 max-w-md text-base leading-relaxed text-ghost">
+              La pasarela de pagos multi-riel que te deja quedarte con cada peso. Sin terminal, sin
+              letra chica, confirmación al instante.
+            </p>
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <Link
+                href="/registro"
+                className="flex items-center gap-2 rounded-[14px] bg-cipher px-6 py-3 text-sm font-semibold text-[#0A0C15] transition active:scale-[.99] active:opacity-90"
               >
-                <Icon name={role.icon} className={`h-4 w-4 ${role.iconColor}`} />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-xs font-medium text-clean">{role.title}</span>
-                <span className="mt-0.5 block text-[10px] text-fog">{role.subtitle}</span>
-              </span>
-              <Icon
-                name="chevron-right"
-                className="ml-auto h-4 w-4 shrink-0 text-fog transition-colors group-hover:text-cipher"
-              />
-            </button>
-          ))}
-        </div>
+                Crear cuenta
+                <Icon name="chevron-right" className="h-[18px] w-[18px]" />
+              </Link>
+              <Link
+                href="/login"
+                className="flex items-center gap-2 rounded-[14px] border border-wire px-6 py-3 text-sm font-semibold text-clean transition-colors hover:border-cipher"
+              >
+                <Icon name="login" className="h-[18px] w-[18px]" />
+                Ingresar
+              </Link>
+            </div>
+          </div>
 
-        <p className="mt-5 text-center text-[10px] text-fog">
-          PagoFirme v{APP_VERSION} · build {BUILD_COMMIT}
-        </p>
+          {/* Visual: matriz QR de marca con línea de escaneo. */}
+          <div className="flex justify-center md:justify-end">
+            <div className="relative overflow-hidden rounded-[28px] border border-cipher/20 bg-gradient-to-br from-surface to-lift p-6 shadow-[0_0_60px_rgba(34,211,238,0.12)]">
+              <div className="overflow-hidden rounded-xl">
+                <QrMatrix code="pagofirme-landing" size={240} label="Código QR de demostración" />
+              </div>
+              <span className="qr-scan-line" aria-hidden="true" />
+            </div>
+          </div>
+        </section>
+
+        {/* ── Banda de claims ────────────────────────────────── */}
+        <section className="grid gap-3 border-y border-wire py-6 sm:grid-cols-3">
+          {claims.map((c) => (
+            <div key={c.label} className="flex items-center gap-3 px-2">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-wire bg-surface">
+                <Icon name={c.icon} className="h-5 w-5 text-cipher" />
+              </span>
+              <div>
+                <div className="text-sm font-semibold text-clean">{c.label}</div>
+                <div className="text-[11px] text-fog">{c.detail}</div>
+              </div>
+            </div>
+          ))}
+        </section>
+
+        {/* ── Features ───────────────────────────────────────── */}
+        <section className="py-20 md:py-28">
+          <h2 className="max-w-xl font-heading text-3xl font-bold tracking-tight sm:text-4xl">
+            Todo lo que tu negocio necesita para cobrar.
+          </h2>
+          <div className="mt-10 grid gap-4 md:grid-cols-3">
+            {features.map((f) => (
+              <div
+                key={f.title}
+                className="rounded-2xl border border-wire bg-surface/60 p-6 transition-colors hover:border-cipher/40"
+              >
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-cipher/20 bg-cipher/[0.06]">
+                  <Icon name={f.icon} className="h-6 w-6 text-cipher" />
+                </span>
+                <h3 className="mt-4 font-heading text-lg font-semibold text-clean">{f.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-ghost">{f.body}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ── 3 pasos ────────────────────────────────────────── */}
+        <section className="border-t border-wire py-20 md:py-28">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cipher">
+            Cómo funciona
+          </span>
+          <h2 className="mt-3 font-heading text-3xl font-bold tracking-tight sm:text-4xl">
+            Empezás a cobrar en 3 pasos.
+          </h2>
+          <div className="mt-12 grid gap-8 md:grid-cols-3">
+            {steps.map((s, i) => (
+              <div key={s.title} className="relative">
+                <div className="font-heading text-5xl font-extrabold text-cipher/30">
+                  {String(i + 1).padStart(2, '0')}
+                </div>
+                <h3 className="mt-3 font-heading text-xl font-semibold text-clean">{s.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-ghost">{s.body}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ── CTA de cierre ──────────────────────────────────── */}
+        <section className="py-20 md:py-28">
+          <div className="relative overflow-hidden rounded-[32px] border border-cipher/20 bg-gradient-to-br from-surface to-lift px-8 py-16 text-center">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+              style={{
+                background:
+                  'radial-gradient(ellipse 60% 80% at 50% 0%, rgba(34,211,238,.12) 0%, transparent 70%)',
+              }}
+            />
+            <h2 className="relative font-heading text-3xl font-extrabold tracking-tight sm:text-5xl">
+              Quedate con cada peso.
+            </h2>
+            <p className="relative mx-auto mt-4 max-w-md text-base text-ghost">
+              Creá tu cuenta hoy y empezá a cobrar con QR sin comisiones.
+            </p>
+            <div className="relative mt-8 flex justify-center">
+              <Link
+                href="/registro"
+                className="flex items-center gap-2 rounded-[14px] bg-cipher px-7 py-3.5 text-sm font-semibold text-[#0A0C15] transition active:scale-[.99] active:opacity-90"
+              >
+                Crear mi cuenta
+                <Icon name="chevron-right" className="h-[18px] w-[18px]" />
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* ── Footer ─────────────────────────────────────────── */}
+        <footer className="flex flex-col items-center justify-between gap-3 border-t border-wire py-8 text-[11px] text-fog sm:flex-row">
+          <span>© 2026 PagoFirme · Bolivia</span>
+          <span className="flex items-center gap-1.5">
+            <span className="h-1 w-1 rounded-full bg-cipher/50" />
+            Cero comisiones · Open BCB
+            <span className="h-1 w-1 rounded-full bg-cipher/50" />
+          </span>
+        </footer>
       </div>
     </main>
   );

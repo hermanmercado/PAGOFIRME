@@ -246,7 +246,7 @@ export default function DuenoDashboard() {
                 <div className="flex items-center gap-2.5">
                   <button
                     type="button"
-                    onClick={() => router.push('/')}
+                    onClick={() => router.push('/login')}
                     aria-label="Volver al login"
                     className="text-ghost transition-colors active:text-cipher"
                   >
@@ -753,7 +753,7 @@ export default function DuenoDashboard() {
 
               <button
                 type="button"
-                onClick={() => router.push('/')}
+                onClick={() => router.push('/login')}
                 className="flex w-full items-center gap-3 rounded-[14px] border border-wire bg-surface px-4 py-3 text-left transition-colors active:bg-lift"
               >
                 <Icon name="login" className="h-5 w-5 text-loss" />

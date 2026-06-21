@@ -58,7 +58,7 @@ export default function AdminDashboard() {
   );
 
   function logout() {
-    router.push('/');
+    router.push('/login');
   }
 
   return (
@@ -153,7 +153,7 @@ export default function AdminDashboard() {
               <div className="flex items-center gap-2.5">
                 <button
                   type="button"
-                  onClick={() => router.push('/')}
+                  onClick={() => router.push('/login')}
                   aria-label="Volver al login"
                   className="text-ghost transition-colors active:text-cipher"
                 >

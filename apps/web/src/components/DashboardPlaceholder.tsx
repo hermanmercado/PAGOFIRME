@@ -29,7 +29,7 @@ export function DashboardPlaceholder({
       <span className="rounded-full border border-wire bg-surface px-3 py-1 text-xs text-fog">
         Dashboard en construcción
       </span>
-      <Link href="/" className="mt-2 text-sm text-cipher hover:underline">
+      <Link href="/login" className="mt-2 text-sm text-cipher hover:underline">
         ← Volver al inicio de sesión
       </Link>
     </main>

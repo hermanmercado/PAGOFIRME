@@ -31,7 +31,7 @@ export function SessionTimeout() {
 
   const logout = useCallback(() => {
     warningRef.current = false;
-    router.push('/');
+    router.push('/login');
   }, [router]);
 
   useEffect(() => {

@@ -151,7 +151,7 @@ export default function DeveloperPortal() {
               <div className="flex items-center gap-2.5">
                 <button
                   type="button"
-                  onClick={() => router.push('/')}
+                  onClick={() => router.push('/login')}
                   aria-label="Volver al login"
                   className="text-ghost transition-colors active:text-[#a78bfa]"
                 >
