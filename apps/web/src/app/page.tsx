@@ -40,7 +40,7 @@ const steps: Array<{ title: string; body: string }> = [
 
 export default function LandingPage() {
   return (
-    <main className="relative min-h-screen overflow-hidden bg-void text-clean">
+    <main className="relative min-h-screen w-full overflow-x-hidden bg-void text-clean">
       {/* Atmósfera: gradientes radiales cian sobre el fondo oscuro. */}
       <div
         aria-hidden
@@ -89,7 +89,7 @@ export default function LandingPage() {
               <span className="h-1.5 w-1.5 rounded-full bg-cipher" />
               Pagos QR para Bolivia
             </span>
-            <h1 className="mt-5 font-heading text-5xl font-extrabold leading-[1.05] tracking-tight sm:text-6xl">
+            <h1 className="mt-5 break-words font-heading text-[clamp(2rem,9vw,3rem)] font-extrabold leading-[1.05] tracking-tight sm:text-6xl">
               Cobrá con un QR.
               <br />
               <span className="text-cipher">Cero comisiones.</span>
@@ -118,9 +118,14 @@ export default function LandingPage() {
 
           {/* Visual: matriz QR de marca con línea de escaneo. */}
           <div className="flex justify-center md:justify-end">
-            <div className="relative overflow-hidden rounded-[28px] border border-cipher/20 bg-gradient-to-br from-surface to-lift p-6 shadow-[0_0_60px_rgba(34,211,238,0.12)]">
+            <div className="relative w-full max-w-[288px] overflow-hidden rounded-[28px] border border-cipher/20 bg-gradient-to-br from-surface to-lift p-4 shadow-[0_0_60px_rgba(34,211,238,0.12)] sm:p-6 md:w-auto">
               <div className="overflow-hidden rounded-xl">
-                <QrMatrix code="pagofirme-landing" size={240} label="Código QR de demostración" />
+                <QrMatrix
+                  code="pagofirme-landing"
+                  size={240}
+                  label="Código QR de demostración"
+                  className="h-auto w-full max-w-[240px]"
+                />
               </div>
               <span className="qr-scan-line" aria-hidden="true" />
             </div>
