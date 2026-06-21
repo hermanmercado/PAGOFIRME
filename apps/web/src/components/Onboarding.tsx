@@ -29,7 +29,7 @@ export function Onboarding({ onDone }: OnboardingProps) {
   const slide = SLIDES[index]!;
 
   return (
-    <main className="relative mx-auto flex h-dvh w-full max-w-[420px] flex-col overflow-hidden bg-void px-5 pb-4 pt-3">
+    <main className="relative mx-auto flex h-dvh w-full max-w-[420px] flex-col overflow-hidden bg-void px-4 pb-3 pt-2.5 sm:px-5 sm:pb-4 sm:pt-3">
       {/* Atmósfera: gradientes radiales cian, igual que el login. */}
       <div
         aria-hidden
@@ -64,16 +64,16 @@ export function Onboarding({ onDone }: OnboardingProps) {
 
         {/* Texto */}
         <div key={index} className="ob-fade-up shrink-0 text-center">
-          <h1 className="mb-1.5 font-heading text-[22px] font-bold leading-tight tracking-tight text-clean">
+          <h1 className="mb-1 font-heading text-[18px] font-bold leading-tight tracking-tight text-clean sm:mb-1.5 sm:text-[22px]">
             {slide.title}
           </h1>
-          <p className="mx-auto mb-4 max-w-[300px] text-[13px] leading-snug text-ghost">
+          <p className="mx-auto mb-3 max-w-[300px] text-xs leading-snug text-ghost sm:mb-4 sm:text-[13px]">
             {slide.subtitle}
           </p>
         </div>
 
         {/* Indicadores (dots) */}
-        <div className="mb-3 flex shrink-0 items-center justify-center gap-2">
+        <div className="mb-2 flex shrink-0 items-center justify-center gap-2 sm:mb-3">
           {SLIDES.map((s, i) => (
             <button
               key={s.title}
@@ -92,7 +92,7 @@ export function Onboarding({ onDone }: OnboardingProps) {
           <button
             type="button"
             onClick={onDone}
-            className="flex w-full shrink-0 items-center justify-center gap-2 rounded-[14px] bg-pay px-4 py-3 text-sm font-semibold text-[#0A0C15] transition active:scale-[.99] active:opacity-90"
+            className="flex w-full shrink-0 items-center justify-center gap-2 rounded-[14px] bg-pay px-4 py-2.5 text-[13px] font-semibold text-[#0A0C15] transition active:scale-[.99] active:opacity-90 sm:py-3 sm:text-sm"
           >
             Empezar gratis
             <Icon name="chevron-right" className="h-[18px] w-[18px]" />
@@ -101,7 +101,7 @@ export function Onboarding({ onDone }: OnboardingProps) {
           <button
             type="button"
             onClick={() => setIndex((i) => Math.min(i + 1, SLIDES.length - 1))}
-            className="flex w-full shrink-0 items-center justify-center gap-2 rounded-[14px] bg-cipher px-4 py-3 text-sm font-semibold text-[#0A0C15] transition active:scale-[.99] active:opacity-90"
+            className="flex w-full shrink-0 items-center justify-center gap-2 rounded-[14px] bg-cipher px-4 py-2.5 text-[13px] font-semibold text-[#0A0C15] transition active:scale-[.99] active:opacity-90 sm:py-3 sm:text-sm"
           >
             Siguiente
             <Icon name="chevron-right" className="h-[18px] w-[18px]" />
@@ -166,7 +166,7 @@ function SlideQr() {
   }, []);
 
   return (
-    <div className="relative h-[clamp(150px,38vh,184px)] w-[clamp(150px,38vh,184px)] rounded-[18px] border border-cipher/20 bg-gradient-to-br from-surface to-lift p-3 shadow-[0_0_40px_rgba(34,211,238,0.12)]">
+    <div className="relative h-[clamp(116px,28vh,150px)] w-[clamp(116px,28vh,150px)] rounded-[18px] border border-cipher/20 bg-gradient-to-br from-surface to-lift p-2.5 shadow-[0_0_40px_rgba(34,211,238,0.12)] sm:h-[clamp(150px,38vh,184px)] sm:w-[clamp(150px,38vh,184px)] sm:p-3">
       {/* Esquinas futuristas en los 4 bordes */}
       {(['tl', 'tr', 'bl', 'br'] as const).map((pos) => (
         <span
@@ -239,7 +239,7 @@ function SlideCobro() {
     <div className="flex w-full max-w-[300px] flex-col items-center">
       {/* Estado: Escaneando → ✓ Cobrado */}
       <div
-        className={`mb-4 flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+        className={`mb-3 flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium transition-colors sm:mb-4 ${
           paid ? 'border-pay/30 bg-pay/[0.1] text-pay' : 'border-cipher/30 bg-cipher/[0.08] text-cipher'
         }`}
       >
@@ -257,25 +257,25 @@ function SlideCobro() {
       </div>
 
       {/* Círculo central: ícono de escaneo o check verde con ping */}
-      <div className="relative mb-4 flex h-[96px] w-[96px] items-center justify-center">
+      <div className="relative mb-3 flex h-[76px] w-[76px] items-center justify-center sm:mb-4 sm:h-[96px] sm:w-[96px]">
         {paid ? (
           <>
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-pay/30" />
             <span className="absolute inline-flex h-full w-full rounded-full bg-pay/10" />
-            <span className="anim-scale-in relative flex h-[72px] w-[72px] items-center justify-center rounded-full bg-pay/15">
-              <Icon name="check" className="h-10 w-10 text-pay" strokeWidth={2.5} />
+            <span className="anim-scale-in relative flex h-[58px] w-[58px] items-center justify-center rounded-full bg-pay/15 sm:h-[72px] sm:w-[72px]">
+              <Icon name="check" className="h-8 w-8 text-pay sm:h-10 sm:w-10" strokeWidth={2.5} />
             </span>
           </>
         ) : (
           <>
             <span className="qr-pulse-ring absolute inset-0 rounded-full" />
-            <Icon name="device-mobile" className="h-10 w-10 text-cipher" />
+            <Icon name="device-mobile" className="h-8 w-8 text-cipher sm:h-10 sm:w-10" />
           </>
         )}
       </div>
 
       {/* Contador que sube en tiempo real */}
-      <div className="font-heading text-[38px] font-bold leading-none tracking-tighter text-clean">
+      <div className="font-heading text-[30px] font-bold leading-none tracking-tighter text-clean sm:text-[38px]">
         <span className="mr-1 align-super text-sm font-medium text-ghost">Bs</span>
         {amount.toLocaleString('es-BO')}
       </div>
@@ -302,7 +302,7 @@ function SlideControl() {
   return (
     <div className="w-full max-w-[320px]">
       {/* Gráfico de barras */}
-      <div className="mb-3 rounded-[16px] border border-wire bg-surface p-3.5">
+      <div className="mb-2.5 rounded-[16px] border border-wire bg-surface p-3 sm:mb-3 sm:p-3.5">
         <div className="mb-2.5 flex items-center justify-between">
           <span className="text-[11px] uppercase tracking-wide text-fog">Ventas de la semana</span>
           <span className="flex items-center gap-1 text-[11px] font-medium text-pay">
@@ -310,10 +310,10 @@ function SlideControl() {
             +24%
           </span>
         </div>
-        <div className="flex h-[92px] items-end justify-between gap-2">
+        <div className="flex h-[76px] items-end justify-between gap-2 sm:h-[92px]">
           {VENTAS.map((v, i) => (
             <div key={v.dia} className="flex flex-1 flex-col items-center gap-1.5">
-              <div className="flex h-[72px] w-full items-end">
+              <div className="flex h-[60px] w-full items-end sm:h-[72px]">
                 <div
                   className={`ob-bar w-full rounded-t-md ${v.top ? 'bg-pay' : 'bg-cipher/40'}`}
                   style={{ height: `${v.pct}%`, animationDelay: `${i * 90}ms` }}
@@ -329,7 +329,7 @@ function SlideControl() {
 
       {/* Insight de IA */}
       <div
-        className="ob-fade-up flex items-center gap-3 rounded-[14px] border border-cipher/20 bg-cipher/[0.06] px-3.5 py-2.5"
+        className="ob-fade-up flex items-center gap-3 rounded-[14px] border border-cipher/20 bg-cipher/[0.06] px-3.5 py-2 sm:py-2.5"
         style={{ animationDelay: '0.5s' }}
       >
         <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-cipher/15">
